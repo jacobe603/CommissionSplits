@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVL Commission Calculator v2</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #3498db;
+            --danger: #e74c3c;
+            --light: #ecf0f1;
+            --success: #27ae60;
+            --owner-color: #9b59b6;
+            --eng-color: #3498db;
+            --cont-color: #e67e22;
+            --inside-color: #7f8c8d;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f7f6; color: #333; padding: 20px; }
+        .container { max-width: 1100px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { margin-top: 0; color: var(--primary); border-bottom: 2px solid var(--light); padding-bottom: 10px; }
+        
+        /* Layout */
+        .top-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; }
+        .controls-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: var(--primary); font-size: 0.9em; }
+        input[type="number"], select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;}
+        
+        /* Sliders & Toggles */
+        .slider-container { display: flex; align-items: center; gap: 10px; }
+        input[type="range"] { flex-grow: 1; }
+        .toggle-switch { display: flex; align-items: center; gap: 10px; background: var(--light); padding: 10px; border-radius: 4px; margin-bottom: 15px;}
+
+        /* Visual Bar */
+        .bar-wrapper { margin: 20px 0; }
+        .bar-labels { display: flex; justify-content: space-between; font-size: 0.8em; color: #666; margin-bottom: 5px; }
+        .bar-container { display: flex; height: 40px; width: 100%; border-radius: 20px; overflow: hidden; background: #eee; border: 1px solid #ccc;}
+        .bar-segment { height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: bold; transition: width 0.3s ease; white-space: nowrap; overflow: hidden; }
+        .bg-owner { background-color: var(--owner-color); }
+        .bg-eng { background-color: var(--eng-color); }
+        .bg-cont { background-color: var(--cont-color); }
+        .bg-inside { background-color: var(--inside-color); border-right: 1px solid white; }
+        .bg-inside:last-child { border-right: none; border-left: 1px solid white; }
+
+        /* Pie Chart */
+        .chart-box { background: var(--light); padding: 20px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; }
+        .pie-chart {
+            width: 150px; height: 150px; border-radius: 50%;
+            background: conic-gradient(var(--owner-color) 0% 0%, var(--eng-color) 0% 0%, var(--cont-color) 0% 100%);
+            margin-bottom: 15px; transition: background 0.3s ease;
+        }
+        .legend { font-size: 0.85em; width: 100%; }
+        .legend-item { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .dot { width: 10px; height: 10px; display: inline-block; border-radius: 50%; margin-right: 5px; }
+
+        /* Matrix Editor */
+        .matrix-editor { margin-top: 30px; border-top: 2px solid var(--light); padding-top: 20px; }
+        .team-card { background: #fafafa; border: 1px solid #eee; padding: 15px; border-radius: 6px; margin-bottom: 10px; }
+        .team-header { display: flex; justify-content: space-between; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold; color: var(--primary); }
+        .rep-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; align-items: center; margin-bottom: 5px; font-size: 0.9em; }
+        .rep-row input { padding: 4px; }
+
+        /* Validation Box */
+        #validation-msg { display: none; background: #fde8e8; color: var(--danger); padding: 15px; border-left: 5px solid var(--danger); margin-bottom: 20px; font-weight: bold; }
+        
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9em; }
+        th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #ddd; }
+        th { background-color: var(--primary); color: white; }
+        tr.total-row { font-weight: bold; background-color: #e8e8e8; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Sales Project Commission Engine v2</h1>
+
+    <div class="top-grid">
+        <div>
+            <div class="controls-grid">
+                <div>
+                    <label>Project Influence</label>
+                    <select id="engLevel" onchange="calculate()">
+                        <option value="0.65">Flat Spec (65%)</option>
+                        <option value="0.50">Basis of Design (50%)</option>
+                        <option value="0.33">Approved Equal (33%)</option>
+                        <option value="0.17">Out of Town (17%)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Owner Influence (%)</label>
+                    <input type="number" id="ownerPctInput" min="0" max="90" value="0" oninput="syncOwner(this.value)">
+                </div>
+                <div class="toggle-switch" style="margin-top:20px; margin-bottom:0;">
+                    <input type="checkbox" id="directSale" onchange="calculate()">
+                    <label for="directSale" style="margin:0; font-weight:normal;">Direct Sale (No Eng)</label>
+                </div>
+            </div>
+
+            <div class="slider-container" style="margin-bottom: 20px;">
+                <label style="width: 120px;">Owner Slider:</label>
+                <input type="range" id="ownerPctSlider" min="0" max="90" value="0" step="1" oninput="syncOwner(this.value)">
+            </div>
+
+            <div id="validation-msg">
+                ⚠️ ERROR: Owner Split too high. Not enough margin for Inside Sales (12%).
+            </div>
+
+            <div class="bar-wrapper">
+                <div class="bar-labels">
+                    <span>Eng Side</span>
+                    <span>Contractor Side</span>
+                </div>
+                <div class="bar-container">
+                    <div id="bar-inside-eng" class="bar-segment bg-inside" style="width: 7%">In 7%</div>
+                    <div id="bar-eng" class="bar-segment bg-eng" style="width: 0%">Eng</div>
+                    <div id="bar-owner" class="bar-segment bg-owner" style="width: 0%">Own</div>
+                    <div id="bar-cont" class="bar-segment bg-cont" style="width: 0%">Cont</div>
+                    <div id="bar-inside-cont" class="bar-segment bg-inside" style="width: 5%">In 5%</div>
+                </div>
+            </div>
+
+            <div class="controls-grid" style="background: #f8f9fa; padding: 15px; border-radius: 6px;">
+                <div>
+                    <label>Select Owner</label>
+                    <select id="sel-owner" onchange="loadCompany('owner')"></select>
+                </div>
+                <div>
+                    <label>Select Engineer</label>
+                    <select id="sel-eng" onchange="loadCompany('engineer')"></select>
+                </div>
+                <div>
+                    <label>Select Contractor</label>
+                    <select id="sel-cont" onchange="loadCompany('contractor')"></select>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-box">
+            <h3>Team Splits</h3>
+            <div id="pie" class="pie-chart"></div>
+            <div class="legend">
+                <div class="legend-item">
+                    <span><span class="dot bg-owner"></span>Owner Team</span>
+                    <span id="leg-owner">0%</span>
+                </div>
+                <div class="legend-item">
+                    <span><span class="dot bg-eng"></span>Eng Team</span>
+                    <span id="leg-eng">0%</span>
+                </div>
+                <div class="legend-item">
+                    <span><span class="dot bg-cont"></span>Cont Team</span>
+                    <span id="leg-cont">0%</span>
+                </div>
+                <hr>
+                <div class="legend-item" style="color:#666; font-style:italic;">
+                    <span>Inside Costs</span>
+                    <span>12%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="matrix-editor">
+        <h2>Commission Matrix (Editable)</h2>
+        <div class="controls-grid" id="matrix-container">
+            </div>
+
+        <h3>Final Breakdown</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Team</th>
+                    <th>Person</th>
+                    <th>Role</th>
+                    <th>Matrix %</th>
+                    <th>Final $ Split</th>
+                </tr>
+            </thead>
+            <tbody id="result-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // --- 1. MOCK DATABASE ---
+    const DB = {
+        owners: [
+            { id: 'o1', name: 'None / Direct', reps: [] },
+            { id: 'o2', name: 'Global Properties', reps: [{name: 'GP Rep', split: 100}] },
+            { id: 'o3', name: 'City Schools', reps: [{name: 'District Mgr', split: 100}] }
+        ],
+        engineers: [
+            { id: 'e1', name: 'Obernel Engineering', reps: [{name: 'Bob (Lead)', split: 60}, {name: 'Steve (Support)', split: 40}] },
+            { id: 'e2', name: 'MBN Design', reps: [{name: 'Alice (Lead)', split: 70}, {name: 'Intern', split: 30}] },
+            { id: 'e3', name: 'KFI Engineers', reps: [{name: 'Tom (Solo)', split: 100}] }
+        ],
+        contractors: [
+            { id: 'c1', name: 'UHL Company', reps: [{name: 'Charlie (Lead)', split: 50}, {name: 'Dave (Support)', split: 50}] },
+            { id: 'c2', name: 'Harris Mechanical', reps: [{name: 'Frank (Lead)', split: 80}, {name: 'Greg (Support)', split: 20}] },
+            { id: 'c3', name: 'Yale Mechanical', reps: [{name: 'Helen (Solo)', split: 100}] }
+        ]
+    };
+
+    // State
+    let currentSplits = {
+        owner: [],
+        engineer: [],
+        contractor: []
+    };
+
+    // --- 2. INIT & LISTENERS ---
+    function init() {
+        populateSelect('sel-owner', DB.owners);
+        populateSelect('sel-eng', DB.engineers);
+        populateSelect('sel-cont', DB.contractors);
+        
+        // Load initial companies
+        loadCompany('owner');
+        loadCompany('engineer');
+        loadCompany('contractor');
+    }
+
+    function populateSelect(id, data) {
+        const sel = document.getElementById(id);
+        data.forEach((item, index) => {
+            let opt = document.createElement('option');
+            opt.value = index; // using index for simplicity in this proto
+            opt.text = item.name;
+            sel.add(opt);
+        });
+    }
+
+    // --- 3. LOADING & EDITING COMPANIES ---
+    function loadCompany(type) {
+        let selIndex = 0;
+        let dbList = [];
+        
+        if(type === 'owner') { selIndex = document.getElementById('sel-owner').value; dbList = DB.owners; }
+        if(type === 'engineer') { selIndex = document.getElementById('sel-eng').value; dbList = DB.engineers; }
+        if(type === 'contractor') { selIndex = document.getElementById('sel-cont').value; dbList = DB.contractors; }
+
+        // Deep copy the reps so we can edit them without changing the DB
+        let selectedCompany = dbList[selIndex];
+        currentSplits[type] = JSON.parse(JSON.stringify(selectedCompany.reps));
+
+        renderMatrixEditor();
+        calculate();
+    }
+
+    function renderMatrixEditor() {
+        const container = document.getElementById('matrix-container');
+        container.innerHTML = '';
+
+        // Helper to build a card
+        const buildCard = (title, type, reps, colorClass) => {
+            let html = `<div class="team-card">
+                        <div class="team-header" style="color:var(--${colorClass}-color)">${title}</div>`;
+            
+            if (reps.length === 0) html += `<small>No reps assigned</small>`;
+
+            reps.forEach((rep, idx) => {
+                html += `
+                    <div class="rep-row">
+                        <span>${rep.name}</span>
+                        <input type="number" value="${rep.split}" oninput="updateSplit('${type}', ${idx}, this.value)">
+                        <span>%</span>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+            container.innerHTML += html;
+        };
+
+        const isDirect = document.getElementById('directSale').checked;
+
+        // Owner Card
+        buildCard("Owner Team", "owner", currentSplits.owner, "owner");
+        
+        // Eng Card
+        if(!isDirect) {
+            buildCard("Engineering Team", "engineer", currentSplits.engineer, "eng");
+        }
+
+        // Cont Card
+        buildCard("Contractor Team", "contractor", currentSplits.contractor, "cont");
+    }
+
+    function updateSplit(type, idx, val) {
+        currentSplits[type][idx].split = parseFloat(val);
+        calculate(); // Recalc on every keystroke
+    }
+
+    // --- 4. CALCULATION ENGINE (Updated) ---
+    function syncOwner(val) {
+        document.getElementById('ownerPctSlider').value = val;
+        document.getElementById('ownerPctInput').value = val;
+        calculate();
+    }
+
+    function calculate() {
+        // Inputs
+        let ownerPct = parseFloat(document.getElementById('ownerPctInput').value);
+        const isDirect = document.getElementById('directSale').checked;
+        const engInfluence = parseFloat(document.getElementById('engLevel').value);
+        
+        // UI Toggles
+        document.getElementById('sel-eng').disabled = isDirect;
+
+        // Constants
+        const FIXED_INSIDE_ENG = 7.0;
+        const FIXED_INSIDE_CONT = 5.0;
+        const TOTAL_INSIDE = 12.0;
+
+        // --- CALC ---
+        let remainingPool = 100 - ownerPct;
+        let engGross = 0;
+        let contGross = 0;
+
+        if (isDirect) {
+            engGross = 0;
+            contGross = remainingPool;
+        } else {
+            engGross = remainingPool * engInfluence;
+            contGross = remainingPool - engGross;
+        }
+
+        // Validation
+        const errorBox = document.getElementById('validation-msg');
+        let isValid = true;
+        if (isDirect) {
+             if (contGross < TOTAL_INSIDE) isValid = false;
+        } else {
+             if (engGross < FIXED_INSIDE_ENG || contGross < FIXED_INSIDE_CONT) isValid = false;
+        }
+        errorBox.style.display = isValid ? 'none' : 'block';
+
+        // Net Calculation
+        let engOutsideNet = 0;
+        let contOutsideNet = 0;
+        let insideEngDisplay = 0;
+        let insideContDisplay = 0;
+
+        if (isDirect) {
+            insideEngDisplay = 0; 
+            insideContDisplay = 12; // All 12% goes to contractor side inside rep
+            contOutsideNet = contGross - 12;
+        } else {
+            insideEngDisplay = 7;
+            insideContDisplay = 5;
+            engOutsideNet = engGross - 7;
+            contOutsideNet = contGross - 5;
+        }
+
+        // --- RENDER VISUALS ---
+        
+        // 1. Bar Chart
+        // Order: Inside Eng (7) | Eng Out | Owner | Cont Out | Inside Cont (5)
+        const barInEng = document.getElementById('bar-inside-eng');
+        const barEng = document.getElementById('bar-eng');
+        const barOwner = document.getElementById('bar-owner');
+        const barCont = document.getElementById('bar-cont');
+        const barInCont = document.getElementById('bar-inside-cont');
+
+        barInEng.style.width = insideEngDisplay + "%";
+        barInEng.innerText = insideEngDisplay > 0 ? "In " + insideEngDisplay + "%" : "";
+        
+        barEng.style.width = Math.max(0, engOutsideNet) + "%";
+        barEng.innerText = engOutsideNet > 5 ? "Eng " + engOutsideNet.toFixed(1) : "";
+
+        barOwner.style.width = ownerPct + "%";
+        barOwner.innerText = ownerPct > 5 ? "Own " + ownerPct.toFixed(1) : "";
+
+        barCont.style.width = Math.max(0, contOutsideNet) + "%";
+        barCont.innerText = contOutsideNet > 5 ? "Cont " + contOutsideNet.toFixed(1) : "";
+
+        barInCont.style.width = insideContDisplay + "%";
+        barInCont.innerText = "In " + insideContDisplay + "%";
+
+        // 2. Pie Chart & Legend
+        let totalOwner = ownerPct;
+        let totalEng = isDirect ? 0 : (engOutsideNet + 7);
+        let totalCont = isDirect ? (contOutsideNet + 12) : (contOutsideNet + 5);
+
+        // Update Pie CSS Conic Gradient
+        // Start Owner at 0. Eng starts at Owner. Cont starts at Owner+Eng.
+        let degOwner = (totalOwner / 100) * 360;
+        let degEng = (totalEng / 100) * 360;
+        
+        const pie = document.getElementById('pie');
+        const colorOwner = getComputedStyle(document.documentElement).getPropertyValue('--owner-color');
+        const colorEng = getComputedStyle(document.documentElement).getPropertyValue('--eng-color');
+        const colorCont = getComputedStyle(document.documentElement).getPropertyValue('--cont-color');
+
+        pie.style.background = `conic-gradient(
+            var(--owner-color) 0deg ${degOwner}deg, 
+            var(--eng-color) ${degOwner}deg ${degOwner + degEng}deg, 
+            var(--cont-color) ${degOwner + degEng}deg 360deg
+        )`;
+
+        document.getElementById('leg-owner').innerText = totalOwner.toFixed(1) + '%';
+        document.getElementById('leg-eng').innerText = totalEng.toFixed(1) + '%';
+        document.getElementById('leg-cont').innerText = totalCont.toFixed(1) + '%';
+
+        // 3. Table
+        renderTable(ownerPct, engOutsideNet, contOutsideNet, isDirect);
+    }
+
+    function renderTable(ownerPct, engNet, contNet, isDirect) {
+        const tbody = document.getElementById('result-body');
+        tbody.innerHTML = '';
+
+        const addRow = (team, person, role, matrix, final, isHeader=false) => {
+            let tr = document.createElement('tr');
+            if(isHeader) tr.className = 'total-row';
+            tr.innerHTML = `<td>${team}</td><td>${person}</td><td>${role}</td><td>${matrix}</td><td>${final.toFixed(2)}%</td>`;
+            tbody.appendChild(tr);
+        }
+
+        // Owner
+        if(currentSplits.owner.length > 0 && ownerPct > 0) {
+            addRow("Owner Team", "", "TOTAL", "-", ownerPct, true);
+            currentSplits.owner.forEach(rep => {
+                // Normalize split (assuming input is 0-100)
+                let share = (rep.split / 100) * ownerPct;
+                addRow("Owner Team", rep.name, "Outside Sales", rep.split+"%", share);
+            });
+        }
+
+        // Eng
+        if(!isDirect) {
+            addRow("Engineering Team", "", "TOTAL", "-", (engNet+7), true);
+            addRow("Engineering Team", "Inside Rep", "Inside (Fixed)", "-", 7.00);
+            currentSplits.engineer.forEach(rep => {
+                let share = (rep.split / 100) * engNet;
+                addRow("Engineering Team", rep.name, "Outside Sales", rep.split+"%", share);
+            });
+        }
+
+        // Cont
+        let contTotal = isDirect ? contNet + 12 : contNet + 5;
+        let insideContVal = isDirect ? 12 : 5;
+        addRow("Contractor Team", "", "TOTAL", "-", contTotal, true);
+        addRow("Contractor Team", "Inside Rep", "Inside (Fixed)", "-", insideContVal);
+        currentSplits.contractor.forEach(rep => {
+            let share = (rep.split / 100) * contNet;
+            addRow("Contractor Team", rep.name, "Outside Sales", rep.split+"%", share);
+        });
+    }
+
+    // Run
+    init();
+
+</script>
+
+</body>
+</html>

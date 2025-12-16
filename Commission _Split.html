@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVL Commission Calculator v4</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --light: #ecf0f1;
+            --danger: #e74c3c;
+            /* Colors */
+            --owner-color: #9b59b6;
+            --spec-color: #e91e63; /* Pink for Specialist Outside */
+            --spec-in-color: #f48fb1; /* Lighter Pink for Specialist Inside */
+            --eng-color: #3498db;
+            --cont-color: #e67e22;
+            --inside-color: #7f8c8d;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f7f6; color: #333; padding: 20px; }
+        .container { max-width: 1100px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { margin-top: 0; color: var(--primary); border-bottom: 2px solid var(--light); padding-bottom: 10px; }
+        
+        /* Layout Grid */
+        .top-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; }
+        .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px; }
+        
+        /* Inputs & Labels */
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: var(--primary); font-size: 0.9em; }
+        .sub-label { font-size: 0.8em; color: #666; font-weight: normal; }
+        input[type="number"], select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;}
+        
+        /* Sliders */
+        .slider-group { background: #f9f9f9; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #eee; }
+        .slider-header { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        
+        /* Toggles */
+        .toggle-switch { display: flex; align-items: center; gap: 10px; background: var(--light); padding: 10px; border-radius: 4px; margin-bottom: 10px;}
+        .specialist-box { border-left: 4px solid var(--spec-color); background: #fff0f6; } 
+
+        /* Visual Bar */
+        .bar-wrapper { margin: 35px 0; }
+        .bar-labels { display: flex; justify-content: space-between; font-size: 0.8em; color: #666; margin-bottom: 5px; }
+        /* Increased height to fit stacked text */
+        .bar-container { display: flex; height: 50px; width: 100%; border-radius: 8px; overflow: hidden; background: #eee; border: 1px solid #ccc;}
+        .bar-segment { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: bold; transition: all 0.4s ease; overflow: hidden; white-space: nowrap; line-height: 1.1; }
+        
+        /* Segment Colors */
+        .bg-owner { background-color: var(--owner-color); }
+        .bg-spec { background-color: var(--spec-color); }
+        .bg-spec-in { background-color: var(--spec-in-color); color: #333; } /* Lighter pink for Inside portion */
+        .bg-eng { background-color: var(--eng-color); }
+        .bg-cont { background-color: var(--cont-color); }
+        .bg-inside { background-color: var(--inside-color); }
+
+        /* Pie Chart */
+        .chart-box { background: var(--light); padding: 20px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; }
+        .pie-chart {
+            width: 140px; height: 140px; border-radius: 50%; margin-bottom: 15px; transition: background 0.3s ease;
+            background: #ccc; /* fallback */
+        }
+        .legend { font-size: 0.8em; width: 100%; }
+        .legend-item { display: flex; justify-content: space-between; margin-bottom: 4px; }
+        .dot { width: 8px; height: 8px; display: inline-block; border-radius: 50%; margin-right: 5px; }
+
+        /* Matrix Editor & Table */
+        .matrix-editor { margin-top: 30px; border-top: 2px solid var(--light); padding-top: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9em; }
+        th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #ddd; }
+        th { background-color: var(--primary); color: white; }
+        tr.total-row { font-weight: bold; background-color: #e8e8e8; }
+        tr.person-row { color: #555; font-style: italic; }
+        
+        /* Validation Box */
+        #validation-msg { display: none; background: #fde8e8; color: var(--danger); padding: 10px; border-left: 5px solid var(--danger); margin: 10px 0; font-weight: bold; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Sales Project Commission Engine v4</h1>
+
+    <div class="top-grid">
+        <div>
+            <div class="controls-grid">
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <label>Owner Influence</label>
+                        <span id="disp-owner" style="color:var(--owner-color); font-weight:bold;">0%</span>
+                    </div>
+                    <input type="range" id="ownerPct" min="0" max="50" value="0" oninput="updateAll()">
+                </div>
+
+                <div class="slider-group specialist-box">
+                    <div class="toggle-switch" style="background:none; padding:0; margin-bottom:5px;">
+                        <input type="checkbox" id="useSpecialist" onchange="updateAll()">
+                        <label for="useSpecialist" style="margin:0; color:var(--spec-color);">Add Specialist</label>
+                    </div>
+                    <div id="spec-controls" style="opacity:0.5; pointer-events:none;">
+                        <div class="slider-header">
+                            <span class="sub-label">Outside Split</span>
+                            <span id="disp-spec" style="font-weight:bold; color:var(--spec-color);">10%</span>
+                        </div>
+                        <input type="range" id="specPct" min="10" max="50" value="10" oninput="updateAll()">
+                        <div style="margin-top:5px; font-size:0.75em; color: #666;">
+                            *Deducts 2% from Eng Inside & 2% from Cont Inside
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="slider-group" id="eng-group">
+                <div class="slider-header">
+                    <label>Engineering Influence</label>
+                    <span id="disp-eng-level" style="font-weight:bold; color:var(--eng-color);">Flat Spec (65%)</span>
+                </div>
+                <input type="range" id="engSlider" min="15" max="70" value="65" step="1" oninput="handleEngSlide(this.value)">
+                <div style="display:flex; justify-content:space-between; font-size:0.7em; color:#999; margin-top:5px;">
+                    <span>Town (17)</span>
+                    <span>Equal (35)</span>
+                    <span>Basis (45)</span>
+                    <span>Strong (55)</span>
+                    <span>Flat (65)</span>
+                </div>
+            </div>
+
+            <div class="toggle-switch">
+                <input type="checkbox" id="directSale" onchange="updateAll()">
+                <label for="directSale" style="margin:0; font-weight:normal;">Direct Sale (No Engineer)</label>
+            </div>
+
+            <div id="validation-msg">
+                ⚠️ ERROR: Not enough margin remains to pay the fixed Inside Sales costs.
+            </div>
+
+            <div class="bar-wrapper">
+                <div class="bar-labels">
+                    <span>&larr; Eng Side</span>
+                    <span>Contractor Side &rarr;</span>
+                </div>
+                <div class="bar-container">
+                    <div id="bar-spec-in-left" class="bar-segment bg-spec-in" style="width: 0%">Spec</div>
+                    <div id="bar-in-eng" class="bar-segment bg-inside" style="width: 7%">In Eng</div>
+                    
+                    <div id="bar-eng" class="bar-segment bg-eng" style="width: 0%">Eng</div>
+                    <div id="bar-spec" class="bar-segment bg-spec" style="width: 0%">Spec</div>
+                    <div id="bar-owner" class="bar-segment bg-owner" style="width: 0%">Own</div>
+                    <div id="bar-cont" class="bar-segment bg-cont" style="width: 0%">Cont</div>
+                    
+                    <div id="bar-in-cont" class="bar-segment bg-inside" style="width: 5%">In Cont</div>
+                    <div id="bar-spec-in-right" class="bar-segment bg-spec-in" style="width: 0%">Spec</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-box">
+            <h3>Total Splits</h3>
+            <div id="pie" class="pie-chart"></div>
+            <div class="legend" id="legend-container"></div>
+        </div>
+    </div>
+
+    <div class="matrix-editor">
+        <h3>Final Commission Breakdown</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Team</th>
+                    <th>Role</th>
+                    <th>Gross %</th>
+                    <th>Final Calculation</th>
+                </tr>
+            </thead>
+            <tbody id="result-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const PRESETS = { 65: "Flat Spec", 55: "Strong Spec", 45: "Basis of Design", 35: "Approved Equal", 17: "Out of Town" };
+
+    function handleEngSlide(val) {
+        val = parseInt(val);
+        let snapped = val;
+        let label = val + "% Custom";
+        for (let p of Object.keys(PRESETS)) {
+            p = parseInt(p);
+            if (Math.abs(val - p) <= 2) {
+                snapped = p;
+                label = `${PRESETS[p]} (${p}%)`;
+            }
+        }
+        document.getElementById('disp-eng-level').innerText = label;
+        if(snapped !== val) document.getElementById('engSlider').value = snapped;
+        updateAll();
+    }
+
+    function updateAll() {
+        // --- INPUTS ---
+        const ownerPct = parseInt(document.getElementById('ownerPct').value);
+        const useSpec = document.getElementById('useSpecialist').checked;
+        const specPctInput = parseInt(document.getElementById('specPct').value);
+        const specPct = useSpec ? specPctInput : 0;
+        const engLevel = parseInt(document.getElementById('engSlider').value) / 100;
+        const isDirect = document.getElementById('directSale').checked;
+
+        // UI State
+        document.getElementById('disp-owner').innerText = ownerPct + "%";
+        document.getElementById('disp-spec').innerText = specPct + "%";
+        const specControls = document.getElementById('spec-controls');
+        specControls.style.opacity = useSpec ? "1" : "0.5";
+        specControls.style.pointerEvents = useSpec ? "auto" : "none";
+        document.getElementById('eng-group').style.opacity = isDirect ? '0.3' : '1';
+        document.getElementById('engSlider').disabled = isDirect;
+
+        // --- CALCULATION LOGIC ---
+        let IN_ENG_BASE = 7.0;
+        let IN_CONT_BASE = 5.0;
+
+        // Visual "Slivers" for the Specialist Inside
+        let specInLeft = 0;
+        let specInRight = 0;
+        let finalInEng = 0;
+        let finalInCont = 0;
+
+        if (useSpec) {
+            // Specialist steals 2% from left and 2% from right
+            specInLeft = 2.0;
+            specInRight = 2.0;
+            
+            // Adjust base values
+            if (isDirect) {
+                finalInEng = 0; // No Eng team
+                finalInCont = 12.0 - 4.0; // Contractor pays total 12, minus 4 going to Spec = 8% left for Cont Inside
+            } else {
+                finalInEng = IN_ENG_BASE - 2.0; // 5%
+                finalInCont = IN_CONT_BASE - 2.0; // 3%
+            }
+        } else {
+            // Standard
+            specInLeft = 0;
+            specInRight = 0;
+            if (isDirect) {
+                finalInEng = 0;
+                finalInCont = 12.0;
+            } else {
+                finalInEng = 7.0;
+                finalInCont = 5.0;
+            }
+        }
+
+        // Waterfall
+        let remainingPool = 100 - ownerPct - specPct;
+        let engGross = 0;
+        let contGross = 0;
+
+        if (isDirect) {
+            engGross = 0;
+            contGross = remainingPool;
+        } else {
+            engGross = remainingPool * engLevel;
+            contGross = remainingPool - engGross;
+        }
+
+        // Validation
+        const errorBox = document.getElementById('validation-msg');
+        let isValid = true;
+        
+        let minEngReq = useSpec ? 5.0 : 7.0;
+        let minContReq = useSpec ? 3.0 : 5.0;
+        
+        if (isDirect) {
+            if (contGross < 12) isValid = false; 
+        } else {
+            if (engGross < minEngReq) isValid = false;
+            if (contGross < minContReq) isValid = false;
+        }
+        errorBox.style.display = isValid ? 'none' : 'block';
+
+        // Net Outside Calculations
+        let engOutsideNet = 0;
+        let contOutsideNet = 0;
+        
+        if (isDirect) {
+            contOutsideNet = contGross - 12; // 12 covers (Spec 4 + Cont 8)
+        } else {
+            engOutsideNet = engGross - (finalInEng + specInLeft); // Gross - 7%
+            contOutsideNet = contGross - (finalInCont + specInRight); // Gross - 5%
+        }
+
+        // --- RENDER BARS (8 Segments) ---
+        // 1. Spec In Left
+        renderBar("bar-spec-in-left", specInLeft, "Sp.In", true); // Pass true to force render label if small?
+        
+        // 2. Eng In Left
+        renderBar("bar-in-eng", finalInEng, "In.Eng");
+        
+        // 3. Middle Bars
+        renderBar("bar-eng", engOutsideNet, "Eng");
+        renderBar("bar-spec", specPct, "Spec");
+        renderBar("bar-owner", ownerPct, "Own");
+        renderBar("bar-cont", contOutsideNet, "Cont");
+        
+        // 4. Cont In Right
+        renderBar("bar-in-cont", finalInCont, "In.Cont");
+        
+        // 5. Spec In Right
+        renderBar("bar-spec-in-right", specInRight, "Sp.In");
+
+        // --- PIE ---
+        updatePie(ownerPct, specPct, engOutsideNet, contOutsideNet, (finalInEng+finalInCont), (specInLeft+specInRight));
+
+        // --- TABLE ---
+        renderTable(ownerPct, specPct, engOutsideNet, contOutsideNet, finalInEng, finalInCont, specInLeft, specInRight, isDirect);
+    }
+
+    function renderBar(id, val, label) {
+        const el = document.getElementById(id);
+        el.style.width = Math.max(0, val) + "%";
+        // Show text if width > 1.5% to allow seeing "2%" bars
+        if (val < 1.5) {
+             el.innerHTML = "";
+        } else {
+             el.innerHTML = `<span>${label}</span><span>${val.toFixed(1)}%</span>`;
+        }
+    }
+
+    function updatePie(owner, specOut, eng, cont, insideTeam, insideSpec) {
+        const colors = [
+            {val: owner, col: 'var(--owner-color)'},
+            {val: specOut, col: 'var(--spec-color)'},
+            {val: eng, col: 'var(--eng-color)'},
+            {val: cont, col: 'var(--cont-color)'},
+            {val: insideTeam, col: 'var(--inside-color)'},
+            {val: insideSpec, col: 'var(--spec-in-color)'}
+        ];
+
+        let d = 0;
+        let gradStr = "conic-gradient(";
+        colors.forEach((c, i) => {
+            let deg = (c.val / 100) * 360;
+            gradStr += `${c.col} ${d}deg ${d+deg}deg`;
+            if(i < colors.length-1) gradStr += ", ";
+            d += deg;
+        });
+        gradStr += ")";
+
+        document.getElementById('pie').style.background = gradStr;
+        
+        // Legend
+        const leg = document.getElementById('legend-container');
+        leg.innerHTML = `
+            ${legItem(owner, 'Owner Outside', 'bg-owner')}
+            ${legItem(specOut, 'Specialist Outside', 'bg-spec')}
+            ${legItem(eng, 'Eng Outside', 'bg-eng')}
+            ${legItem(cont, 'Cont Outside', 'bg-cont')}
+            <hr>
+            ${legItem(insideTeam, 'Eng/Cont Inside', 'bg-inside')}
+            ${legItem(insideSpec, 'Specialist Inside', 'bg-spec-in')}
+        `;
+    }
+
+    function legItem(val, label, bgClass) {
+        if(val <= 0) return '';
+        return `
+            <div class="legend-item">
+                <span><span class="dot ${bgClass}"></span>${label}</span>
+                <span>${val.toFixed(1)}%</span>
+            </div>`;
+    }
+
+    function renderTable(owner, spec, engOut, contOut, inEng, inCont, inSpecL, inSpecR, isDirect) {
+        const tbody = document.getElementById('result-body');
+        tbody.innerHTML = '';
+        
+        const addRow = (team, role, gross, final, isBold=false) => {
+            let tr = document.createElement('tr');
+            if(isBold) tr.style.fontWeight = "bold";
+            if(role.includes("Inside")) tr.className = "person-row";
+            
+            let finalStr = final.toFixed(2) + "%";
+            if(final < 0) finalStr = `<span style="color:red">${finalStr}</span>`;
+            tr.innerHTML = `<td>${team}</td><td>${role}</td><td>${gross}</td><td>${finalStr}</td>`;
+            tbody.appendChild(tr);
+        }
+
+        if(owner > 0) addRow("Owner Team", "Outside Reps", "-", owner, true);
+
+        if(spec > 0) {
+            addRow("Specialist", "Outside Rep", "-", spec, true);
+            addRow("Specialist", "Inside Rep", "2% Left + 2% Right", inSpecL + inSpecR);
+        }
+
+        if(!isDirect) {
+            addRow("Engineering", "Outside Reps", "-", engOut, true);
+            addRow("Engineering", "Inside Rep", (inSpecL>0?"7% - 2%":"Base 7%"), inEng);
+        }
+
+        addRow("Contractor", "Outside Reps", "-", contOut, true);
+        addRow("Contractor", "Inside Rep", (inSpecL>0?"5% - 2%":"Base 5%"), inCont);
+        
+        let total = owner + spec + engOut + contOut + inEng + inCont + inSpecL + inSpecR;
+        addRow("TOTAL", "Checksum", "", Math.round(total), true);
+    }
+
+    handleEngSlide(65);
+</script>
+
+</body>
+</html>
