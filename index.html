@@ -448,8 +448,12 @@
         // 5. Spec In Right
         renderBar("bar-spec-in-right", specInRight, "Sp.In");
 
-        // --- PIE ---
-        updatePie(ownerPct, specPct, engOutsideNet, contOutsideNet, (finalInEng+finalInCont), (specInLeft+specInRight));
+        // --- PIE (Team Totals: Outside + Inside) ---
+        let totalOwner = ownerPct;
+        let totalSpec = specPct + specInLeft + specInRight;  // Spec outside + Spec inside (both sides)
+        let totalEng = engOutsideNet + finalInEng;  // Eng outside + Eng inside
+        let totalCont = contOutsideNet + finalInCont;  // Cont outside + Cont inside
+        updatePie(totalOwner, totalSpec, totalEng, totalCont, isDirect);
 
         // --- TABLE ---
         renderTable(ownerPct, specPct, engOutsideNet, contOutsideNet, finalInEng, finalInCont, specInLeft, specInRight, isDirect);
@@ -466,38 +470,36 @@
         }
     }
 
-    function updatePie(owner, specOut, eng, cont, insideTeam, insideSpec) {
+    function updatePie(owner, spec, eng, cont, isDirect) {
         const colors = [
-            {val: owner, col: 'var(--owner-color)'},
-            {val: specOut, col: 'var(--spec-color)'},
-            {val: eng, col: 'var(--eng-color)'},
-            {val: cont, col: 'var(--cont-color)'},
-            {val: insideTeam, col: 'var(--inside-color)'},
-            {val: insideSpec, col: 'var(--spec-in-color)'}
+            {val: owner, col: 'var(--owner-color)', label: 'Owner'},
+            {val: spec, col: 'var(--spec-color)', label: 'Specialist'},
+            {val: eng, col: 'var(--eng-color)', label: 'Engineering'},
+            {val: cont, col: 'var(--cont-color)', label: 'Contractor'}
         ];
+
+        // Filter out zero values for cleaner gradient
+        const activeColors = colors.filter(c => c.val > 0);
 
         let d = 0;
         let gradStr = "conic-gradient(";
-        colors.forEach((c, i) => {
+        activeColors.forEach((c, i) => {
             let deg = (c.val / 100) * 360;
             gradStr += `${c.col} ${d}deg ${d+deg}deg`;
-            if(i < colors.length-1) gradStr += ", ";
+            if(i < activeColors.length-1) gradStr += ", ";
             d += deg;
         });
         gradStr += ")";
 
         document.getElementById('pie').style.background = gradStr;
-        
-        // Legend
+
+        // Legend - show all 4 teams with their totals
         const leg = document.getElementById('legend-container');
         leg.innerHTML = `
-            ${legItem(owner, 'Owner Outside', 'bg-owner')}
-            ${legItem(specOut, 'Specialist Outside', 'bg-spec')}
-            ${legItem(eng, 'Eng Outside', 'bg-eng')}
-            ${legItem(cont, 'Cont Outside', 'bg-cont')}
-            <hr>
-            ${legItem(insideTeam, 'Eng/Cont Inside', 'bg-inside')}
-            ${legItem(insideSpec, 'Specialist Inside', 'bg-spec-in')}
+            ${legItem(owner, 'Owner', 'bg-owner')}
+            ${legItem(spec, 'Specialist', 'bg-spec')}
+            ${!isDirect ? legItem(eng, 'Engineering', 'bg-eng') : ''}
+            ${legItem(cont, 'Contractor', 'bg-cont')}
         `;
     }
 
