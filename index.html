@@ -37,6 +37,7 @@
         
         /* Toggles */
         .toggle-switch { display: flex; align-items: center; gap: 10px; background: var(--light); padding: 10px; border-radius: 4px; margin-bottom: 10px;}
+        .owner-box { border-left: 4px solid var(--owner-color); background: #f5f0ff; }
         .specialist-box { border-left: 4px solid var(--spec-color); background: #fff0f6; } 
 
         /* Visual Bar */
@@ -119,12 +120,18 @@
     <div class="top-grid">
         <div>
             <div class="controls-grid">
-                <div class="slider-group">
-                    <div class="slider-header">
-                        <label>Owner Influence</label>
-                        <span id="disp-owner" style="color:var(--owner-color); font-weight:bold;">0%</span>
+                <div class="slider-group owner-box">
+                    <div class="toggle-switch" style="background:none; padding:0; margin-bottom:5px;">
+                        <input type="checkbox" id="useOwner" onchange="toggleOwner()">
+                        <label for="useOwner" style="margin:0; color:var(--owner-color);">Add Owner</label>
                     </div>
-                    <input type="range" id="ownerPct" min="0" max="50" value="0" oninput="updateAll()">
+                    <div id="owner-controls" style="opacity:0.5; pointer-events:none;">
+                        <div class="slider-header">
+                            <span class="sub-label">Owner Influence</span>
+                            <span id="disp-owner" style="font-weight:bold; color:var(--owner-color);">10%</span>
+                        </div>
+                        <input type="range" id="ownerPct" min="0" max="50" value="0" oninput="updateAll()">
+                    </div>
                 </div>
 
                 <div class="slider-group specialist-box">
@@ -471,21 +478,40 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         handleEngSlide(val);
     }
 
+    function toggleOwner() {
+        const useOwner = document.getElementById('useOwner').checked;
+        const ownerSlider = document.getElementById('ownerPct');
+        if (useOwner) {
+            ownerSlider.value = 10; // Default to 10% when enabled
+        } else {
+            ownerSlider.value = 0;
+        }
+        updateAll();
+    }
+
     function updateAll() {
         // --- INPUTS ---
-        const ownerPct = parseInt(document.getElementById('ownerPct').value);
+        const useOwner = document.getElementById('useOwner').checked;
+        const ownerPct = useOwner ? parseInt(document.getElementById('ownerPct').value) : 0;
         const useSpec = document.getElementById('useSpecialist').checked;
         const specPctInput = parseInt(document.getElementById('specPct').value);
         const specPct = useSpec ? specPctInput : 0;
         const engLevel = parseInt(document.getElementById('engSlider').value) / 100;
         const isDirect = document.getElementById('directSale').checked;
 
-        // UI State
+        // UI State - Owner controls
         document.getElementById('disp-owner').innerText = ownerPct + "%";
+        const ownerControls = document.getElementById('owner-controls');
+        ownerControls.style.opacity = useOwner ? "1" : "0.5";
+        ownerControls.style.pointerEvents = useOwner ? "auto" : "none";
+
+        // UI State - Specialist controls
         document.getElementById('disp-spec').innerText = specPct + "%";
         const specControls = document.getElementById('spec-controls');
         specControls.style.opacity = useSpec ? "1" : "0.5";
         specControls.style.pointerEvents = useSpec ? "auto" : "none";
+
+        // UI State - Engineering controls
         document.getElementById('eng-group').style.opacity = isDirect ? '0.3' : '1';
         document.getElementById('engSlider').disabled = isDirect;
         document.getElementById('sel-eng').disabled = isDirect;
