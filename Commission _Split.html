@@ -66,6 +66,12 @@
 
         /* Matrix Editor & Table */
         .matrix-editor { margin-top: 30px; border-top: 2px solid var(--light); padding-top: 20px; }
+        .team-card { background: #fafafa; border: 1px solid #eee; padding: 15px; border-radius: 6px; margin-bottom: 10px; }
+        .team-header { display: flex; justify-content: space-between; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold; }
+        .rep-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; align-items: center; margin-bottom: 5px; font-size: 0.9em; }
+        .rep-row input { padding: 4px; }
+        .matrix-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .company-select-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9em; }
         th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #ddd; }
         th { background-color: var(--primary); color: white; }
@@ -162,14 +168,36 @@
     </div>
 
     <div class="matrix-editor">
+        <h2>Commission Matrix (Editable)</h2>
+
+        <div class="company-select-grid">
+            <div>
+                <label>Select Owner</label>
+                <select id="sel-owner" onchange="loadCompany('owner')"></select>
+            </div>
+            <div>
+                <label>Select Engineer</label>
+                <select id="sel-eng" onchange="loadCompany('engineer')"></select>
+            </div>
+            <div>
+                <label>Select Contractor</label>
+                <select id="sel-cont" onchange="loadCompany('contractor')"></select>
+            </div>
+        </div>
+
+        <div class="matrix-grid" id="matrix-container">
+            <!-- Team cards will be rendered here -->
+        </div>
+
         <h3>Final Commission Breakdown</h3>
         <table>
             <thead>
                 <tr>
                     <th>Team</th>
+                    <th>Person</th>
                     <th>Role</th>
-                    <th>Gross %</th>
-                    <th>Final Calculation</th>
+                    <th>Matrix %</th>
+                    <th>Final $ Split</th>
                 </tr>
             </thead>
             <tbody id="result-body"></tbody>
@@ -178,7 +206,115 @@
 </div>
 
 <script>
+    // --- MOCK DATABASE ---
+    const DB = {
+        owners: [
+            { id: 'o1', name: 'None / Direct', reps: [] },
+            { id: 'o2', name: 'Global Properties', reps: [{name: 'GP Rep', split: 100}] },
+            { id: 'o3', name: 'City Schools', reps: [{name: 'District Mgr', split: 100}] }
+        ],
+        engineers: [
+            { id: 'e1', name: 'Obernel Engineering', reps: [{name: 'Bob (Lead)', split: 60}, {name: 'Steve (Support)', split: 40}] },
+            { id: 'e2', name: 'MBN Design', reps: [{name: 'Alice (Lead)', split: 70}, {name: 'Intern', split: 30}] },
+            { id: 'e3', name: 'KFI Engineers', reps: [{name: 'Tom (Solo)', split: 100}] }
+        ],
+        contractors: [
+            { id: 'c1', name: 'UHL Company', reps: [{name: 'Charlie (Lead)', split: 50}, {name: 'Dave (Support)', split: 50}] },
+            { id: 'c2', name: 'Harris Mechanical', reps: [{name: 'Frank (Lead)', split: 80}, {name: 'Greg (Support)', split: 20}] },
+            { id: 'c3', name: 'Yale Mechanical', reps: [{name: 'Helen (Solo)', split: 100}] }
+        ]
+    };
+
+    // State for editable splits
+    let currentSplits = {
+        owner: [],
+        engineer: [],
+        contractor: []
+    };
+
     const PRESETS = { 65: "Flat Spec", 55: "Strong Spec", 45: "Basis of Design", 35: "Approved Equal", 17: "Out of Town" };
+
+    // --- INIT & SELECT POPULATION ---
+    function init() {
+        populateSelect('sel-owner', DB.owners);
+        populateSelect('sel-eng', DB.engineers);
+        populateSelect('sel-cont', DB.contractors);
+
+        // Load initial companies
+        loadCompany('owner');
+        loadCompany('engineer');
+        loadCompany('contractor');
+    }
+
+    function populateSelect(id, data) {
+        const sel = document.getElementById(id);
+        data.forEach((item, index) => {
+            let opt = document.createElement('option');
+            opt.value = index;
+            opt.text = item.name;
+            sel.add(opt);
+        });
+    }
+
+    // --- LOADING & EDITING COMPANIES ---
+    function loadCompany(type) {
+        let selIndex = 0;
+        let dbList = [];
+
+        if(type === 'owner') { selIndex = document.getElementById('sel-owner').value; dbList = DB.owners; }
+        if(type === 'engineer') { selIndex = document.getElementById('sel-eng').value; dbList = DB.engineers; }
+        if(type === 'contractor') { selIndex = document.getElementById('sel-cont').value; dbList = DB.contractors; }
+
+        // Deep copy the reps so we can edit them without changing the DB
+        let selectedCompany = dbList[selIndex];
+        currentSplits[type] = JSON.parse(JSON.stringify(selectedCompany.reps));
+
+        renderMatrixEditor();
+        updateAll();
+    }
+
+    function renderMatrixEditor() {
+        const container = document.getElementById('matrix-container');
+        container.innerHTML = '';
+
+        // Helper to build a card
+        const buildCard = (title, type, reps, colorVar) => {
+            let html = `<div class="team-card">
+                        <div class="team-header" style="color:var(--${colorVar}-color)">${title}</div>`;
+
+            if (reps.length === 0) html += `<small>No reps assigned</small>`;
+
+            reps.forEach((rep, idx) => {
+                html += `
+                    <div class="rep-row">
+                        <span>${rep.name}</span>
+                        <input type="number" value="${rep.split}" oninput="updateSplit('${type}', ${idx}, this.value)">
+                        <span>%</span>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+            container.innerHTML += html;
+        };
+
+        const isDirect = document.getElementById('directSale').checked;
+
+        // Owner Card
+        buildCard("Owner Team", "owner", currentSplits.owner, "owner");
+
+        // Eng Card (only if not direct sale)
+        if(!isDirect) {
+            buildCard("Engineering Team", "engineer", currentSplits.engineer, "eng");
+        }
+
+        // Contractor Card
+        buildCard("Contractor Team", "contractor", currentSplits.contractor, "cont");
+    }
+
+    function updateSplit(type, idx, val) {
+        currentSplits[type][idx].split = parseFloat(val);
+        updateAll(); // Recalculate on every keystroke
+    }
 
     function handleEngSlide(val) {
         val = parseInt(val);
@@ -213,6 +349,10 @@
         specControls.style.pointerEvents = useSpec ? "auto" : "none";
         document.getElementById('eng-group').style.opacity = isDirect ? '0.3' : '1';
         document.getElementById('engSlider').disabled = isDirect;
+        document.getElementById('sel-eng').disabled = isDirect;
+
+        // Re-render matrix editor when direct sale is toggled
+        renderMatrixEditor();
 
         // --- CALCULATION LOGIC ---
         let IN_ENG_BASE = 7.0;
@@ -373,38 +513,59 @@
     function renderTable(owner, spec, engOut, contOut, inEng, inCont, inSpecL, inSpecR, isDirect) {
         const tbody = document.getElementById('result-body');
         tbody.innerHTML = '';
-        
-        const addRow = (team, role, gross, final, isBold=false) => {
+
+        const addRow = (team, person, role, matrix, final, isHeader=false) => {
             let tr = document.createElement('tr');
-            if(isBold) tr.style.fontWeight = "bold";
-            if(role.includes("Inside")) tr.className = "person-row";
-            
+            if(isHeader) tr.className = 'total-row';
+            if(role.includes("Inside")) tr.classList.add("person-row");
+
             let finalStr = final.toFixed(2) + "%";
             if(final < 0) finalStr = `<span style="color:red">${finalStr}</span>`;
-            tr.innerHTML = `<td>${team}</td><td>${role}</td><td>${gross}</td><td>${finalStr}</td>`;
+            tr.innerHTML = `<td>${team}</td><td>${person}</td><td>${role}</td><td>${matrix}</td><td>${finalStr}</td>`;
             tbody.appendChild(tr);
         }
 
-        if(owner > 0) addRow("Owner Team", "Outside Reps", "-", owner, true);
+        // Owner Team
+        if(currentSplits.owner.length > 0 && owner > 0) {
+            addRow("Owner Team", "", "TOTAL", "-", owner, true);
+            currentSplits.owner.forEach(rep => {
+                let share = (rep.split / 100) * owner;
+                addRow("Owner Team", rep.name, "Outside Sales", rep.split + "%", share);
+            });
+        }
 
+        // Specialist
         if(spec > 0) {
-            addRow("Specialist", "Outside Rep", "-", spec, true);
-            addRow("Specialist", "Inside Rep", "2% Left + 2% Right", inSpecL + inSpecR);
+            addRow("Specialist", "", "TOTAL", "-", spec + inSpecL + inSpecR, true);
+            addRow("Specialist", "Outside Rep", "Outside Sales", "-", spec);
+            addRow("Specialist", "Inside Rep", "Inside (Fixed)", "2%L + 2%R", inSpecL + inSpecR);
         }
 
+        // Engineering Team
         if(!isDirect) {
-            addRow("Engineering", "Outside Reps", "-", engOut, true);
-            addRow("Engineering", "Inside Rep", (inSpecL>0?"7% - 2%":"Base 7%"), inEng);
+            addRow("Engineering Team", "", "TOTAL", "-", engOut + inEng, true);
+            addRow("Engineering Team", "Inside Rep", "Inside (Fixed)", "-", inEng);
+            currentSplits.engineer.forEach(rep => {
+                let share = (rep.split / 100) * engOut;
+                addRow("Engineering Team", rep.name, "Outside Sales", rep.split + "%", share);
+            });
         }
 
-        addRow("Contractor", "Outside Reps", "-", contOut, true);
-        addRow("Contractor", "Inside Rep", (inSpecL>0?"5% - 2%":"Base 5%"), inCont);
-        
+        // Contractor Team
+        addRow("Contractor Team", "", "TOTAL", "-", contOut + inCont, true);
+        addRow("Contractor Team", "Inside Rep", "Inside (Fixed)", "-", inCont);
+        currentSplits.contractor.forEach(rep => {
+            let share = (rep.split / 100) * contOut;
+            addRow("Contractor Team", rep.name, "Outside Sales", rep.split + "%", share);
+        });
+
+        // Checksum
         let total = owner + spec + engOut + contOut + inEng + inCont + inSpecL + inSpecR;
-        addRow("TOTAL", "Checksum", "", Math.round(total), true);
+        addRow("TOTAL", "", "Checksum", "", Math.round(total), true);
     }
 
-    handleEngSlide(65);
+    // Initialize the page
+    init();
 </script>
 
 </body>
