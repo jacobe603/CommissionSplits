@@ -151,12 +151,12 @@
                     <span id="disp-eng-level" style="font-weight:bold; color:var(--eng-color);">Flat Spec (65%)</span>
                 </div>
                 <input type="range" id="engSlider" min="15" max="70" value="65" step="1" oninput="handleEngSlide(this.value)">
-                <div style="display:flex; justify-content:space-between; font-size:0.7em; color:#999; margin-top:5px;">
-                    <span>Town (17)</span>
-                    <span>Equal (35)</span>
-                    <span>Basis (45)</span>
-                    <span>Strong (55)</span>
-                    <span>Flat (65)</span>
+                <div style="position:relative; height:20px; font-size:0.7em; color:#888; margin-top:8px;">
+                    <span onclick="setEngLevel(17)" style="position:absolute; left:3.6%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Town</span>
+                    <span onclick="setEngLevel(35)" style="position:absolute; left:36.4%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Equal</span>
+                    <span onclick="setEngLevel(45)" style="position:absolute; left:54.5%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Basis</span>
+                    <span onclick="setEngLevel(55)" style="position:absolute; left:72.7%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Strong</span>
+                    <span onclick="setEngLevel(65)" style="position:absolute; left:90.9%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Flat</span>
                 </div>
             </div>
 
@@ -464,6 +464,11 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         document.getElementById('disp-eng-level').innerText = label;
         if(snapped !== val) document.getElementById('engSlider').value = snapped;
         updateAll();
+    }
+
+    function setEngLevel(val) {
+        document.getElementById('engSlider').value = val;
+        handleEngSlide(val);
     }
 
     function updateAll() {
