@@ -80,12 +80,41 @@
         
         /* Validation Box */
         #validation-msg { display: none; background: #fde8e8; color: var(--danger); padding: 10px; border-left: 5px solid var(--danger); margin: 10px 0; font-weight: bold; font-size: 0.9em; }
+
+        /* Help Button & Modal */
+        .header-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--light); padding-bottom: 10px; margin-bottom: 20px; }
+        .header-row h1 { border: none; padding: 0; margin: 0; }
+        .help-btn { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 0.9em; display: flex; align-items: center; gap: 8px; }
+        .help-btn:hover { background: #1a252f; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: white; width: 90%; max-width: 800px; max-height: 85vh; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
+        .modal-header { background: var(--primary); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h2 { margin: 0; font-size: 1.2em; }
+        .modal-close { background: none; border: none; color: white; font-size: 1.5em; cursor: pointer; line-height: 1; }
+        .modal-close:hover { opacity: 0.8; }
+        .modal-body { padding: 20px; overflow-y: auto; font-size: 0.9em; line-height: 1.6; }
+        .modal-body h3 { color: var(--primary); margin-top: 25px; margin-bottom: 10px; border-bottom: 1px solid var(--light); padding-bottom: 5px; }
+        .modal-body h4 { color: #555; margin-top: 20px; margin-bottom: 8px; }
+        .modal-body p { margin-bottom: 12px; }
+        .modal-body ul { margin: 10px 0; padding-left: 25px; }
+        .modal-body li { margin-bottom: 6px; }
+        .modal-body code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace; font-size: 0.9em; }
+        .modal-body pre { background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 0.85em; line-height: 1.4; }
+        .modal-body .info-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 0.85em; }
+        .modal-body .info-table th, .modal-body .info-table td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
+        .modal-body .info-table th { background: var(--light); }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Sales Project Commission Engine v4</h1>
+    <div class="header-row">
+        <h1>Sales Project Commission Engine v4</h1>
+        <button class="help-btn" onclick="openHelp()">
+            <span>?</span> How It Works
+        </button>
+    </div>
 
     <div class="top-grid">
         <div>
@@ -205,7 +234,112 @@
     </div>
 </div>
 
+<!-- Help Modal -->
+<div class="modal-overlay" id="helpModal" onclick="closeHelpOnOverlay(event)">
+    <div class="modal">
+        <div class="modal-header">
+            <h2>Commission Split Engine - How It Works</h2>
+            <button class="modal-close" onclick="closeHelp()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <h3>1. Executive Summary</h3>
+            <p>This feature implements a <strong>"Waterfall"</strong> calculation engine to distribute profit on HVAC sales projects. The logic dictates how a project's commission pool is divided among four potential parties: the <strong>Owner</strong>, the <strong>Specialist</strong>, the <strong>Engineering Team</strong>, and the <strong>Contractor Team</strong>.</p>
+
+            <h4>Core Logic ("The Waterfall")</h4>
+            <p>The calculation follows a strict order of operations:</p>
+            <ul>
+                <li><strong>Top-Off Deductions:</strong> The Owner and Specialist (if involved) take their percentage cuts from the total project profit first.</li>
+                <li><strong>The Split:</strong> The remaining profit is divided between the Engineering Team and the Contractor Team based on a user-defined "Influence Level" (e.g., Flat Spec vs. Open Spec).</li>
+                <li><strong>Inside Sales Costs:</strong> From those two team buckets, we deduct fixed percentages to pay the Inside Sales/Project Management staff.</li>
+                <li><strong>Net Commission:</strong> The remaining amount in the buckets is distributed to the Outside Sales Reps based on a pre-defined matrix.</li>
+            </ul>
+            <p><em>Note: If a Specialist is involved, they "cannibalize" a portion of the Inside Sales budget (effectively re-allocating it to the Specialist Support role).</em></p>
+
+            <h3>2. Technical Definitions</h3>
+            <h4>Constants</h4>
+            <p>These values represent business rules:</p>
+            <table class="info-table">
+                <tr><th>Constant</th><th>Value</th><th>Description</th></tr>
+                <tr><td><code>INSIDE_ENG_BASE</code></td><td>7.0%</td><td>Base Inside Sales cost for the Engineer Team</td></tr>
+                <tr><td><code>INSIDE_CONT_BASE</code></td><td>5.0%</td><td>Base Inside Sales cost for the Contractor Team</td></tr>
+                <tr><td><code>SPEC_INSIDE_TAX</code></td><td>2.0%</td><td>The % the Specialist "taxes" from each team's Inside Sales budget</td></tr>
+                <tr><td><code>TOTAL_INSIDE_CAP</code></td><td>12.0%</td><td>Hard cap for total Inside Sales commission on any project</td></tr>
+            </table>
+
+            <h4>Input Variables</h4>
+            <table class="info-table">
+                <tr><th>Variable</th><th>Type</th><th>Description</th></tr>
+                <tr><td>Owner Influence</td><td>0-50%</td><td>Percentage taken "off the top" for the Owner</td></tr>
+                <tr><td>Specialist Toggle</td><td>On/Off</td><td>Indicates if a Specialist is involved</td></tr>
+                <tr><td>Specialist Outside %</td><td>10-50%</td><td>Required if Specialist is active</td></tr>
+                <tr><td>Engineering Influence</td><td>17-65%</td><td>e.g., 0.65 for Flat Spec, 0.17 for Out of Town</td></tr>
+                <tr><td>Direct Sale</td><td>On/Off</td><td>True if no Engineer is involved</td></tr>
+            </table>
+
+            <h3>3. Algorithm Logic</h3>
+            <p>The calculation must be performed in this specific order:</p>
+
+            <h4>Step 1: Determine Inside Sales Rates</h4>
+            <p>If a specialist is active, the standard inside sales rates are reduced by 2%, and that amount is re-allocated to the Specialist Support role.</p>
+<pre>IF specialist_active:
+    eng_inside_rate = 7% - 2% = 5%
+    cont_inside_rate = 5% - 2% = 3%
+    spec_inside_rate = 2% + 2% = 4%
+ELSE:
+    eng_inside_rate = 7%
+    cont_inside_rate = 5%</pre>
+
+            <h4>Step 2: Calculate Remaining Pool</h4>
+            <p>Deduct the Owner and Specialist Outside percentages from the total (100%).</p>
+<pre>remaining_pool = 100% - owner% - specialist%</pre>
+
+            <h4>Step 3: Divide the Pool</h4>
+<pre>IF direct_sale:
+    eng_gross = 0%
+    cont_gross = remaining_pool
+ELSE:
+    eng_gross = remaining_pool × influence_factor
+    cont_gross = remaining_pool - eng_gross</pre>
+
+            <h4>Step 4: Validation ("Squeeze" Check)</h4>
+            <p>Verify that the gross pools are large enough to cover the mandatory Inside Costs. If not, an error is displayed.</p>
+
+            <h4>Step 5: Net Commission</h4>
+<pre>eng_outside_net = eng_gross - eng_inside_rate
+cont_outside_net = cont_gross - cont_inside_rate</pre>
+
+            <h3>4. Visual Representation</h3>
+            <ul>
+                <li><strong>Bar Chart:</strong> Shows the split visually from Engineering side (left) to Contractor side (right)</li>
+                <li><strong>Inside Sales Bars:</strong> When a Specialist is active, the UI shows 2% Pink (Specialist) portions on each end</li>
+                <li><strong>Validation Error:</strong> A red alert box appears if allocations are too high, preventing invalid splits</li>
+            </ul>
+
+            <h3>5. Commission Matrix</h3>
+            <p>The matrix allows you to:</p>
+            <ul>
+                <li>Select companies for Owner, Engineer, and Contractor teams</li>
+                <li>Edit individual rep split percentages within each team</li>
+                <li>See the final dollar split breakdown in the table</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
 <script>
+    // --- HELP MODAL FUNCTIONS ---
+    function openHelp() {
+        document.getElementById('helpModal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeHelp() {
+        document.getElementById('helpModal').classList.remove('active');
+        document.body.style.overflow = '';
+    }
+    function closeHelpOnOverlay(e) {
+        if (e.target === document.getElementById('helpModal')) closeHelp();
+    }
+
     // --- MOCK DATABASE ---
     const DB = {
         owners: [
