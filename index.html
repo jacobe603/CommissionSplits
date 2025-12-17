@@ -169,15 +169,15 @@
 
                 <div class="slider-group specialist-box">
                     <div class="toggle-switch" style="background:none; padding:0; margin-bottom:5px;">
-                        <input type="checkbox" id="useSpecialist" onchange="updateAll()">
+                        <input type="checkbox" id="useSpecialist" onchange="toggleSpecialist()">
                         <label for="useSpecialist" style="margin:0; color:var(--spec-color);">Add Specialist</label>
                     </div>
                     <div id="spec-controls" style="opacity:0.5; pointer-events:none;">
                         <div class="slider-header">
                             <span class="sub-label">Outside Split</span>
-                            <span id="disp-spec" style="font-weight:bold; color:var(--spec-color);">10%</span>
+                            <span id="disp-spec" style="font-weight:bold; color:var(--spec-color);">0%</span>
                         </div>
-                        <input type="range" id="specPct" min="10" max="50" value="10" oninput="updateAll()">
+                        <input type="range" id="specPct" min="0" max="100" value="0" oninput="updateAll()">
                         <div style="margin-top:5px; font-size:0.75em; color: #666;">
                             *Deducts 2% from Eng Inside & 2% from Cont Inside
                         </div>
@@ -563,13 +563,23 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         updateAll();
     }
 
+    function toggleSpecialist() {
+        const useSpec = document.getElementById('useSpecialist').checked;
+        const specSlider = document.getElementById('specPct');
+        if (useSpec) {
+            specSlider.value = 10; // Default to 10% when enabled
+        } else {
+            specSlider.value = 0;
+        }
+        updateAll();
+    }
+
     function updateAll() {
         // --- INPUTS ---
         const useOwner = document.getElementById('useOwner').checked;
         const ownerPct = useOwner ? parseInt(document.getElementById('ownerPct').value) : 0;
         const useSpec = document.getElementById('useSpecialist').checked;
-        const specPctInput = parseInt(document.getElementById('specPct').value);
-        const specPct = useSpec ? specPctInput : 0;
+        const specPct = useSpec ? parseInt(document.getElementById('specPct').value) : 0;
         const engLevel = parseInt(document.getElementById('engSlider').value) / 100;
         const isDirect = document.getElementById('directSale').checked;
         const isEngDirected = document.getElementById('engDirected').checked;
