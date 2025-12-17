@@ -256,7 +256,7 @@
                     <label>Engineering Influence</label>
                     <span id="disp-eng-level" style="font-weight:bold; color:var(--eng-color);">Flat Spec (65%)</span>
                 </div>
-                <input type="range" id="engSlider" min="15" max="70" value="65" step="1" oninput="handleEngSlide(this.value)">
+                <input type="range" id="engSlider" min="15" max="70" value="35" step="1" oninput="handleEngSlide(this.value)">
                 <div style="position:relative; height:20px; font-size:0.7em; color:#888; margin-top:8px;">
                     <span onclick="setEngLevel(17)" style="position:absolute; left:3.6%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Town</span>
                     <span onclick="setEngLevel(35)" style="position:absolute; left:36.4%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Equal</span>
@@ -540,7 +540,7 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         loadCompany('contractor');
         loadCompany('specialist');
 
-        handleEngSlide(65); // Initialize with default values
+        handleEngSlide(35); // Initialize with default values (Equal)
     }
 
     function populateSelect(id, data) {
