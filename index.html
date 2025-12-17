@@ -173,11 +173,15 @@
                         <label for="useSpecialist" style="margin:0; color:var(--spec-color);">Add Specialist</label>
                     </div>
                     <div id="spec-controls" style="opacity:0.5; pointer-events:none;">
+                        <div style="margin-bottom:8px;">
+                            <label style="font-size:0.8em; margin-bottom:3px;">Specialist Type</label>
+                            <select id="sel-specialist" onchange="loadCompany('specialist')" style="width:100%; padding:6px; font-size:0.85em;"></select>
+                        </div>
                         <div class="slider-header">
                             <span class="sub-label">Outside Split</span>
                             <span id="disp-spec" style="font-weight:bold; color:var(--spec-color);">0%</span>
                         </div>
-                        <input type="range" id="specPct" min="0" max="100" value="0" oninput="updateAll()">
+                        <input type="range" id="specPct" min="0" max="50" value="0" oninput="updateAll()">
                         <div style="margin-top:5px; font-size:0.75em; color: #666;">
                             *Deducts 2% from Eng Inside & 2% from Cont Inside
                         </div>
@@ -411,6 +415,17 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
             { id: 'c1', name: 'UHL Company', reps: [{name: 'Charlie (Lead)', split: 50}, {name: 'Dave (Support)', split: 50}] },
             { id: 'c2', name: 'Harris Mechanical', reps: [{name: 'Frank (Lead)', split: 80}, {name: 'Greg (Support)', split: 20}] },
             { id: 'c3', name: 'Yale Mechanical', reps: [{name: 'Helen (Solo)', split: 100}] }
+        ],
+        specialists: [
+            { id: 's1', name: 'Dadanco', reps: [{name: 'Dan M.', split: 100}] },
+            { id: 's2', name: 'Nortek AHU', reps: [{name: 'Brent', split: 100}] },
+            { id: 's3', name: 'VRV', reps: [{name: 'Vishal', split: 100}] },
+            { id: 's4', name: 'HT Material', reps: [{name: 'Marie', split: 100}] },
+            { id: 's5', name: 'Geothermal', reps: [{name: 'Vishal', split: 50}, {name: 'Duane', split: 50}] },
+            { id: 's6', name: 'Williams IPS', reps: [{name: 'Clint', split: 100}] },
+            { id: 's7', name: 'Flow Environmental', reps: [{name: 'Duane', split: 100}] },
+            { id: 's8', name: 'AJ Surgery Suite', reps: [{name: 'Jeff P.', split: 100}] },
+            { id: 's9', name: 'Coop Purchasing', reps: [{name: 'Duane', split: 100}] }
         ]
     };
 
@@ -418,7 +433,8 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
     let currentSplits = {
         owner: [],
         engineer: [],
-        contractor: []
+        contractor: [],
+        specialist: []
     };
 
     const PRESETS = { 65: "Flat Spec", 55: "Strong Spec", 45: "Basis of Design", 35: "Approved Equal", 17: "Out of Town" };
@@ -429,11 +445,13 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         populateSelect('sel-owner', DB.owners);
         populateSelect('sel-eng', DB.engineers);
         populateSelect('sel-cont', DB.contractors);
+        populateSelect('sel-specialist', DB.specialists);
 
         // Load initial companies
         loadCompany('owner');
         loadCompany('engineer');
         loadCompany('contractor');
+        loadCompany('specialist');
 
         handleEngSlide(65); // Initialize with default values
     }
@@ -455,6 +473,7 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         if(type === 'owner') { selIndex = document.getElementById('sel-owner').value; dbList = DB.owners; }
         if(type === 'engineer') { selIndex = document.getElementById('sel-eng').value; dbList = DB.engineers; }
         if(type === 'contractor') { selIndex = document.getElementById('sel-cont').value; dbList = DB.contractors; }
+        if(type === 'specialist') { selIndex = document.getElementById('sel-specialist').value; dbList = DB.specialists; }
 
         // Deep copy the reps so we can edit them without changing the DB
         let selectedCompany = dbList[selIndex];
@@ -793,9 +812,16 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
             commissionRows.push({ team: 'Owner', person: 'Owner Rep', type: 'Outside Sales', split: owner });
         }
 
-        // Specialist
+        // Specialist - use selected specialist type reps
         if (spec > 0) {
-            commissionRows.push({ team: 'Specialist', person: 'Specialist Rep', type: 'Outside Sales', split: spec });
+            if (currentSplits.specialist.length > 0) {
+                currentSplits.specialist.forEach(rep => {
+                    let share = (rep.split / 100) * spec;
+                    commissionRows.push({ team: 'Specialist', person: rep.name, type: 'Outside Sales', split: share });
+                });
+            } else {
+                commissionRows.push({ team: 'Specialist', person: 'Specialist Rep', type: 'Outside Sales', split: spec });
+            }
             if (inSpecL + inSpecR > 0) {
                 commissionRows.push({ team: 'Specialist', person: 'Specialist Support', type: 'Inside Sales', split: inSpecL + inSpecR });
             }
