@@ -202,7 +202,7 @@
 
             <div class="toggle-switch">
                 <input type="checkbox" id="directSale" onchange="updateAll()">
-                <label for="directSale" style="margin:0; font-weight:normal;">Direct Sale (No Engineer)</label>
+                <label for="directSale" style="margin:0; font-weight:normal;">Contractor Only (Design/Build)</label>
             </div>
 
             <div id="validation-msg">
@@ -221,9 +221,9 @@
                     <div id="bar-eng" class="bar-segment bg-eng" style="width: 0%">Eng</div>
                     <div id="bar-spec" class="bar-segment bg-spec" style="width: 0%">Spec</div>
                     <div id="bar-owner" class="bar-segment bg-owner" style="width: 0%">Own</div>
-                    <div id="bar-cont" class="bar-segment bg-cont" style="width: 0%">Cont</div>
-                    
-                    <div id="bar-in-cont" class="bar-segment bg-inside" style="width: 5%">In Cont</div>
+                    <div id="bar-cont" class="bar-segment bg-cont" style="width: 0%">C</div>
+
+                    <div id="bar-in-cont" class="bar-segment bg-inside" style="width: 5%">In.C</div>
                     <div id="bar-spec-in-right" class="bar-segment bg-spec-in" style="width: 0%">Spec</div>
                 </div>
             </div>
@@ -594,10 +594,10 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         renderBar("bar-eng", engOutsideNet, "Eng");
         renderBar("bar-spec", specPct, "Spec");
         renderBar("bar-owner", ownerPct, "Own");
-        renderBar("bar-cont", contOutsideNet, "Cont");
-        
-        // 4. Cont In Right
-        renderBar("bar-in-cont", finalInCont, "In.Cont");
+        renderBar("bar-cont", contOutsideNet, "C");
+
+        // 4. Contractor Inside Right
+        renderBar("bar-in-cont", finalInCont, "In.C");
         
         // 5. Spec In Right
         renderBar("bar-spec-in-right", specInRight, "Sp.In");
@@ -694,11 +694,11 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         }
 
         // Contractor Team
-        commissionRows.push({ team: 'Contractor', person: 'Cont Inside Rep', type: 'Inside Sales', split: inCont });
+        commissionRows.push({ team: 'Contractor', person: 'Contractor Inside Rep', type: 'Inside Sales', split: inCont });
         if (contOut > 0) {
             // Split contractor outside between two reps (50/50 default)
-            commissionRows.push({ team: 'Contractor', person: 'Cont Lead', type: 'Outside Sales', split: contOut * 0.5 });
-            commissionRows.push({ team: 'Contractor', person: 'Cont Support', type: 'Outside Sales', split: contOut * 0.5 });
+            commissionRows.push({ team: 'Contractor', person: 'Contractor Lead', type: 'Outside Sales', split: contOut * 0.5 });
+            commissionRows.push({ team: 'Contractor', person: 'Contractor Support', type: 'Outside Sales', split: contOut * 0.5 });
         }
 
         renderCommissionTable();
