@@ -243,7 +243,22 @@
 
     <div class="matrix-editor">
         <h2>Commission Breakdown</h2>
-        <p class="table-note">This tool generates a commission split table. Edit any field below to customize the breakdown.</p>
+        <p class="table-note">Select companies below to load their sales reps, or edit the table directly.</p>
+
+        <div class="company-select-grid">
+            <div>
+                <label>Select Owner Company</label>
+                <select id="sel-owner" onchange="loadCompany('owner')"></select>
+            </div>
+            <div>
+                <label>Select Engineer Company</label>
+                <select id="sel-eng" onchange="loadCompany('engineer')"></select>
+            </div>
+            <div>
+                <label>Select Contractor Company</label>
+                <select id="sel-cont" onchange="loadCompany('contractor')"></select>
+            </div>
+        </div>
 
         <table class="commission-table">
             <thead>
@@ -380,11 +395,72 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
     // This is the core data structure - the whole tool just builds this table!
     let commissionRows = [];
 
+    // --- MOCK DATABASE ---
+    const DB = {
+        owners: [
+            { id: 'o1', name: 'None / Direct', reps: [] },
+            { id: 'o2', name: 'Global Properties', reps: [{name: 'GP Rep', split: 100}] },
+            { id: 'o3', name: 'City Schools', reps: [{name: 'District Mgr', split: 100}] }
+        ],
+        engineers: [
+            { id: 'e1', name: 'Obernel Engineering', reps: [{name: 'Bob (Lead)', split: 60}, {name: 'Steve (Support)', split: 40}] },
+            { id: 'e2', name: 'MBN Design', reps: [{name: 'Alice (Lead)', split: 70}, {name: 'Intern', split: 30}] },
+            { id: 'e3', name: 'KFI Engineers', reps: [{name: 'Tom (Solo)', split: 100}] }
+        ],
+        contractors: [
+            { id: 'c1', name: 'UHL Company', reps: [{name: 'Charlie (Lead)', split: 50}, {name: 'Dave (Support)', split: 50}] },
+            { id: 'c2', name: 'Harris Mechanical', reps: [{name: 'Frank (Lead)', split: 80}, {name: 'Greg (Support)', split: 20}] },
+            { id: 'c3', name: 'Yale Mechanical', reps: [{name: 'Helen (Solo)', split: 100}] }
+        ]
+    };
+
+    // Current selected company reps
+    let currentSplits = {
+        owner: [],
+        engineer: [],
+        contractor: []
+    };
+
     const PRESETS = { 65: "Flat Spec", 55: "Strong Spec", 45: "Basis of Design", 35: "Approved Equal", 17: "Out of Town" };
 
     // --- INIT ---
     function init() {
+        // Populate company dropdowns
+        populateSelect('sel-owner', DB.owners);
+        populateSelect('sel-eng', DB.engineers);
+        populateSelect('sel-cont', DB.contractors);
+
+        // Load initial companies
+        loadCompany('owner');
+        loadCompany('engineer');
+        loadCompany('contractor');
+
         handleEngSlide(65); // Initialize with default values
+    }
+
+    function populateSelect(id, data) {
+        const sel = document.getElementById(id);
+        data.forEach((item, index) => {
+            let opt = document.createElement('option');
+            opt.value = index;
+            opt.text = item.name;
+            sel.add(opt);
+        });
+    }
+
+    function loadCompany(type) {
+        let selIndex = 0;
+        let dbList = [];
+
+        if(type === 'owner') { selIndex = document.getElementById('sel-owner').value; dbList = DB.owners; }
+        if(type === 'engineer') { selIndex = document.getElementById('sel-eng').value; dbList = DB.engineers; }
+        if(type === 'contractor') { selIndex = document.getElementById('sel-cont').value; dbList = DB.contractors; }
+
+        // Deep copy the reps so we can edit them without changing the DB
+        let selectedCompany = dbList[selIndex];
+        currentSplits[type] = JSON.parse(JSON.stringify(selectedCompany.reps));
+
+        updateAll();
     }
 
     // --- COMMISSION TABLE FUNCTIONS ---
@@ -694,11 +770,16 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
     }
 
     function renderTable(owner, spec, engOut, contOut, inEng, inCont, inSpecL, inSpecR, isDirect, isEngDirected) {
-        // Generate commission rows from calculated values
+        // Generate commission rows from calculated values using selected company reps
         commissionRows = [];
 
-        // Owner
-        if (owner > 0) {
+        // Owner - use selected company reps
+        if (owner > 0 && currentSplits.owner.length > 0) {
+            currentSplits.owner.forEach(rep => {
+                let share = (rep.split / 100) * owner;
+                commissionRows.push({ team: 'Owner', person: rep.name, type: 'Outside Sales', split: share });
+            });
+        } else if (owner > 0) {
             commissionRows.push({ team: 'Owner', person: 'Owner Rep', type: 'Outside Sales', split: owner });
         }
 
@@ -710,23 +791,33 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
             }
         }
 
-        // Engineering Team (show if not direct sale OR if eng directed)
+        // Engineering Team - use selected company reps
         if ((!isDirect || isEngDirected) && (engOut + inEng > 0)) {
-            commissionRows.push({ team: 'Engineering', person: 'Eng Inside Rep', type: 'Inside Sales', split: inEng });
-            if (engOut > 0) {
-                // Split engineering outside between two reps (60/40 default)
-                commissionRows.push({ team: 'Engineering', person: 'Eng Lead', type: 'Outside Sales', split: engOut * 0.6 });
-                commissionRows.push({ team: 'Engineering', person: 'Eng Support', type: 'Outside Sales', split: engOut * 0.4 });
+            if (inEng > 0) {
+                commissionRows.push({ team: 'Engineering', person: 'Eng Inside Rep', type: 'Inside Sales', split: inEng });
+            }
+            if (engOut > 0 && currentSplits.engineer.length > 0) {
+                currentSplits.engineer.forEach(rep => {
+                    let share = (rep.split / 100) * engOut;
+                    commissionRows.push({ team: 'Engineering', person: rep.name, type: 'Outside Sales', split: share });
+                });
+            } else if (engOut > 0) {
+                commissionRows.push({ team: 'Engineering', person: 'Eng Rep', type: 'Outside Sales', split: engOut });
             }
         }
 
-        // Contractor Team
+        // Contractor Team - use selected company reps
         if (inCont > 0 || contOut > 0) {
-            commissionRows.push({ team: 'Contractor', person: 'Contractor Inside Rep', type: 'Inside Sales', split: inCont });
-            if (contOut > 0) {
-                // Split contractor outside between two reps (50/50 default)
-                commissionRows.push({ team: 'Contractor', person: 'Contractor Lead', type: 'Outside Sales', split: contOut * 0.5 });
-                commissionRows.push({ team: 'Contractor', person: 'Contractor Support', type: 'Outside Sales', split: contOut * 0.5 });
+            if (inCont > 0) {
+                commissionRows.push({ team: 'Contractor', person: 'Contractor Inside Rep', type: 'Inside Sales', split: inCont });
+            }
+            if (contOut > 0 && currentSplits.contractor.length > 0) {
+                currentSplits.contractor.forEach(rep => {
+                    let share = (rep.split / 100) * contOut;
+                    commissionRows.push({ team: 'Contractor', person: rep.name, type: 'Outside Sales', split: share });
+                });
+            } else if (contOut > 0) {
+                commissionRows.push({ team: 'Contractor', person: 'Contractor Rep', type: 'Outside Sales', split: contOut });
             }
         }
 
