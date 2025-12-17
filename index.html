@@ -221,6 +221,10 @@
                         <label for="useOwner" style="margin:0; color:var(--owner-color);">Add Owner</label>
                     </div>
                     <div id="owner-controls" style="opacity:0.5; pointer-events:none;">
+                        <div style="margin-bottom:8px;">
+                            <label style="font-size:0.8em; margin-bottom:3px;">Owner Company</label>
+                            <select id="sel-owner" onchange="loadCompany('owner')" style="width:100%; padding:6px; font-size:0.85em;"></select>
+                        </div>
                         <div class="slider-header">
                             <span class="sub-label">Owner Influence</span>
                             <span id="disp-owner" style="font-weight:bold; color:var(--owner-color);">10%</span>
@@ -311,17 +315,13 @@
         <h2>Commission Breakdown</h2>
         <p class="table-note">Select companies below to load their sales reps, or edit the table directly.</p>
 
-        <div class="company-select-grid">
+        <div class="company-select-grid" style="grid-template-columns: 1fr 1fr;">
             <div>
-                <label>Select Owner Company</label>
-                <select id="sel-owner" onchange="loadCompany('owner')"></select>
-            </div>
-            <div>
-                <label>Select Engineer Company</label>
+                <label>Select Engineer Company (Quote Team)</label>
                 <select id="sel-eng" onchange="loadCompany('engineer')"></select>
             </div>
             <div>
-                <label>Select Contractor Company</label>
+                <label>Select Contractor Company (Customer Team)</label>
                 <select id="sel-cont" onchange="loadCompany('contractor')"></select>
             </div>
         </div>
