@@ -417,15 +417,15 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
             { id: 'c3', name: 'Yale Mechanical', reps: [{name: 'Helen (Solo)', split: 100}] }
         ],
         specialists: [
-            { id: 's1', name: 'Dadanco', reps: [{name: 'Dan M.', split: 100}] },
-            { id: 's2', name: 'Nortek AHU', reps: [{name: 'Brent', split: 100}] },
-            { id: 's3', name: 'VRV', reps: [{name: 'Vishal', split: 100}] },
-            { id: 's4', name: 'HT Material', reps: [{name: 'Marie', split: 100}] },
-            { id: 's5', name: 'Geothermal', reps: [{name: 'Vishal', split: 50}, {name: 'Duane', split: 50}] },
-            { id: 's6', name: 'Williams IPS', reps: [{name: 'Clint', split: 100}] },
-            { id: 's7', name: 'Flow Environmental', reps: [{name: 'Duane', split: 100}] },
-            { id: 's8', name: 'AJ Surgery Suite', reps: [{name: 'Jeff P.', split: 100}] },
-            { id: 's9', name: 'Coop Purchasing', reps: [{name: 'Duane', split: 100}] }
+            { id: 's1', name: 'Dadanco', outside: [{name: 'Dan M.', split: 100}], inside: [{name: 'Dan M.', split: 100}] },
+            { id: 's2', name: 'Nortek AHU', outside: [{name: 'Brent', split: 100}], inside: [{name: 'Brent', split: 100}] },
+            { id: 's3', name: 'VRV', outside: [{name: 'Vishal', split: 100}], inside: [{name: 'Vishal', split: 100}] },
+            { id: 's4', name: 'HT Material', outside: [{name: 'Marie', split: 100}], inside: [{name: 'Marie', split: 100}] },
+            { id: 's5', name: 'Geothermal', outside: [{name: 'Vishal', split: 50}, {name: 'Duane', split: 50}], inside: [{name: 'Vishal', split: 50}, {name: 'Duane', split: 50}] },
+            { id: 's6', name: 'Williams IPS', outside: [{name: 'Clint', split: 100}], inside: [{name: 'Clint', split: 100}] },
+            { id: 's7', name: 'Flow Environmental', outside: [{name: 'Duane', split: 100}], inside: [{name: 'Duane', split: 100}] },
+            { id: 's8', name: 'AJ Surgery Suite', outside: [{name: 'Jeff P.', split: 100}], inside: [{name: 'Jeff P.', split: 100}] },
+            { id: 's9', name: 'Coop Purchasing', outside: [{name: 'Duane', split: 100}], inside: [{name: 'Duane', split: 100}] }
         ]
     };
 
@@ -434,7 +434,8 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         owner: [],
         engineer: [],
         contractor: [],
-        specialist: []
+        specialistOutside: [],
+        specialistInside: []
     };
 
     const PRESETS = { 65: "Flat Spec", 55: "Strong Spec", 45: "Basis of Design", 35: "Approved Equal", 17: "Out of Town" };
@@ -477,7 +478,14 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
 
         // Deep copy the reps so we can edit them without changing the DB
         let selectedCompany = dbList[selIndex];
-        currentSplits[type] = JSON.parse(JSON.stringify(selectedCompany.reps));
+
+        // Specialist has separate inside/outside arrays
+        if (type === 'specialist') {
+            currentSplits.specialistOutside = JSON.parse(JSON.stringify(selectedCompany.outside));
+            currentSplits.specialistInside = JSON.parse(JSON.stringify(selectedCompany.inside));
+        } else {
+            currentSplits[type] = JSON.parse(JSON.stringify(selectedCompany.reps));
+        }
 
         updateAll();
     }
@@ -812,18 +820,28 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
             commissionRows.push({ team: 'Owner', person: 'Owner Rep', type: 'Outside Sales', split: owner });
         }
 
-        // Specialist - use selected specialist type reps
+        // Specialist - use selected specialist type reps (separate inside/outside)
         if (spec > 0) {
-            if (currentSplits.specialist.length > 0) {
-                currentSplits.specialist.forEach(rep => {
+            // Outside Sales
+            if (currentSplits.specialistOutside.length > 0) {
+                currentSplits.specialistOutside.forEach(rep => {
                     let share = (rep.split / 100) * spec;
                     commissionRows.push({ team: 'Specialist', person: rep.name, type: 'Outside Sales', split: share });
                 });
             } else {
                 commissionRows.push({ team: 'Specialist', person: 'Specialist Rep', type: 'Outside Sales', split: spec });
             }
+            // Inside Sales
             if (inSpecL + inSpecR > 0) {
-                commissionRows.push({ team: 'Specialist', person: 'Specialist Support', type: 'Inside Sales', split: inSpecL + inSpecR });
+                let totalSpecInside = inSpecL + inSpecR;
+                if (currentSplits.specialistInside.length > 0) {
+                    currentSplits.specialistInside.forEach(rep => {
+                        let share = (rep.split / 100) * totalSpecInside;
+                        commissionRows.push({ team: 'Specialist', person: rep.name, type: 'Inside Sales', split: share });
+                    });
+                } else {
+                    commissionRows.push({ team: 'Specialist', person: 'Specialist Support', type: 'Inside Sales', split: totalSpecInside });
+                }
             }
         }
 
