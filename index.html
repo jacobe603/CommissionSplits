@@ -205,6 +205,11 @@
                 <label for="directSale" style="margin:0; font-weight:normal;">Contractor Only (Design/Build)</label>
             </div>
 
+            <div class="toggle-switch" style="border-left: 3px solid var(--eng-color);">
+                <input type="checkbox" id="engDirected" onchange="updateAll()">
+                <label for="engDirected" style="margin:0; font-weight:normal;">Engineer Directed Owner Sale</label>
+            </div>
+
             <div id="validation-msg">
                 ⚠️ ERROR: Not enough margin remains to pay the fixed Inside Sales costs.
             </div>
@@ -491,6 +496,7 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         const specPct = useSpec ? specPctInput : 0;
         const engLevel = parseInt(document.getElementById('engSlider').value) / 100;
         const isDirect = document.getElementById('directSale').checked;
+        const isEngDirected = document.getElementById('engDirected').checked;
 
         // UI State - Owner controls
         document.getElementById('disp-owner').innerText = ownerPct + "%";
@@ -504,9 +510,14 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         specControls.style.opacity = useSpec ? "1" : "0.5";
         specControls.style.pointerEvents = useSpec ? "auto" : "none";
 
-        // UI State - Engineering controls
-        document.getElementById('eng-group').style.opacity = isDirect ? '0.3' : '1';
-        document.getElementById('engSlider').disabled = isDirect;
+        // UI State - Engineering controls (disabled for Contractor Only OR Eng Directed)
+        const engDisabled = isDirect || isEngDirected;
+        document.getElementById('eng-group').style.opacity = engDisabled ? '0.3' : '1';
+        document.getElementById('engSlider').disabled = engDisabled;
+
+        // Mutual exclusivity for checkboxes
+        document.getElementById('directSale').disabled = isEngDirected;
+        document.getElementById('engDirected').disabled = isDirect;
 
         // --- CALCULATION LOGIC ---
         let IN_ENG_BASE = 7.0;
@@ -517,12 +528,24 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         let specInRight = 0;
         let finalInEng = 0;
         let finalInCont = 0;
+        let engOutsideNet = 0;
+        let contOutsideNet = 0;
+        let engGross = 0;
+        let contGross = 0;
 
-        if (useSpec) {
+        // Engineer Directed Owner Sale: 78% Outside + 10% Inside to Eng, 12% Inside to Contractor
+        if (isEngDirected) {
+            finalInEng = 10.0;
+            finalInCont = 12.0;
+            engOutsideNet = 78.0 - ownerPct - specPct;
+            contOutsideNet = 0;
+            engGross = engOutsideNet + finalInEng;
+            contGross = finalInCont;
+        } else if (useSpec) {
             // Specialist steals 2% from left and 2% from right
             specInLeft = 2.0;
             specInRight = 2.0;
-            
+
             // Adjust base values
             if (isDirect) {
                 finalInEng = 0; // No Eng team
@@ -544,43 +567,47 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
             }
         }
 
-        // Waterfall
-        let remainingPool = 100 - ownerPct - specPct;
-        let engGross = 0;
-        let contGross = 0;
+        // Waterfall (skip if Eng Directed since we set values above)
+        if (!isEngDirected) {
+            let remainingPool = 100 - ownerPct - specPct;
 
-        if (isDirect) {
-            engGross = 0;
-            contGross = remainingPool;
-        } else {
-            engGross = remainingPool * engLevel;
-            contGross = remainingPool - engGross;
+            if (isDirect) {
+                engGross = 0;
+                contGross = remainingPool;
+            } else {
+                engGross = remainingPool * engLevel;
+                contGross = remainingPool - engGross;
+            }
         }
 
         // Validation
         const errorBox = document.getElementById('validation-msg');
         let isValid = true;
-        
-        let minEngReq = useSpec ? 5.0 : 7.0;
-        let minContReq = useSpec ? 3.0 : 5.0;
-        
-        if (isDirect) {
-            if (contGross < 12) isValid = false; 
+
+        if (isEngDirected) {
+            // Eng Directed: valid as long as owner+spec don't exceed 78%
+            if (ownerPct + specPct > 78) isValid = false;
         } else {
-            if (engGross < minEngReq) isValid = false;
-            if (contGross < minContReq) isValid = false;
+            let minEngReq = useSpec ? 5.0 : 7.0;
+            let minContReq = useSpec ? 3.0 : 5.0;
+
+            if (isDirect) {
+                if (contGross < 12) isValid = false;
+            } else {
+                if (engGross < minEngReq) isValid = false;
+                if (contGross < minContReq) isValid = false;
+            }
         }
         errorBox.style.display = isValid ? 'none' : 'block';
 
-        // Net Outside Calculations
-        let engOutsideNet = 0;
-        let contOutsideNet = 0;
-        
-        if (isDirect) {
-            contOutsideNet = contGross - 12; // 12 covers (Spec 4 + Cont 8)
-        } else {
-            engOutsideNet = engGross - (finalInEng + specInLeft); // Gross - 7%
-            contOutsideNet = contGross - (finalInCont + specInRight); // Gross - 5%
+        // Net Outside Calculations (skip if Eng Directed - already set above)
+        if (!isEngDirected) {
+            if (isDirect) {
+                contOutsideNet = contGross - 12; // 12 covers (Spec 4 + Cont 8)
+            } else {
+                engOutsideNet = engGross - (finalInEng + specInLeft); // Gross - 7%
+                contOutsideNet = contGross - (finalInCont + specInRight); // Gross - 5%
+            }
         }
 
         // --- RENDER BARS (8 Segments) ---
@@ -607,10 +634,10 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         let totalSpec = specPct + specInLeft + specInRight;  // Spec outside + Spec inside (both sides)
         let totalEng = engOutsideNet + finalInEng;  // Eng outside + Eng inside
         let totalCont = contOutsideNet + finalInCont;  // Cont outside + Cont inside
-        updatePie(totalOwner, totalSpec, totalEng, totalCont, isDirect);
+        updatePie(totalOwner, totalSpec, totalEng, totalCont, isDirect && !isEngDirected);
 
         // --- TABLE ---
-        renderTable(ownerPct, specPct, engOutsideNet, contOutsideNet, finalInEng, finalInCont, specInLeft, specInRight, isDirect);
+        renderTable(ownerPct, specPct, engOutsideNet, contOutsideNet, finalInEng, finalInCont, specInLeft, specInRight, isDirect, isEngDirected);
     }
 
     function renderBar(id, val, label) {
@@ -666,7 +693,7 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
             </div>`;
     }
 
-    function renderTable(owner, spec, engOut, contOut, inEng, inCont, inSpecL, inSpecR, isDirect) {
+    function renderTable(owner, spec, engOut, contOut, inEng, inCont, inSpecL, inSpecR, isDirect, isEngDirected) {
         // Generate commission rows from calculated values
         commissionRows = [];
 
@@ -683,8 +710,8 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
             }
         }
 
-        // Engineering Team
-        if (!isDirect && engOut + inEng > 0) {
+        // Engineering Team (show if not direct sale OR if eng directed)
+        if ((!isDirect || isEngDirected) && (engOut + inEng > 0)) {
             commissionRows.push({ team: 'Engineering', person: 'Eng Inside Rep', type: 'Inside Sales', split: inEng });
             if (engOut > 0) {
                 // Split engineering outside between two reps (60/40 default)
@@ -694,11 +721,13 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         }
 
         // Contractor Team
-        commissionRows.push({ team: 'Contractor', person: 'Contractor Inside Rep', type: 'Inside Sales', split: inCont });
-        if (contOut > 0) {
-            // Split contractor outside between two reps (50/50 default)
-            commissionRows.push({ team: 'Contractor', person: 'Contractor Lead', type: 'Outside Sales', split: contOut * 0.5 });
-            commissionRows.push({ team: 'Contractor', person: 'Contractor Support', type: 'Outside Sales', split: contOut * 0.5 });
+        if (inCont > 0 || contOut > 0) {
+            commissionRows.push({ team: 'Contractor', person: 'Contractor Inside Rep', type: 'Inside Sales', split: inCont });
+            if (contOut > 0) {
+                // Split contractor outside between two reps (50/50 default)
+                commissionRows.push({ team: 'Contractor', person: 'Contractor Lead', type: 'Outside Sales', split: contOut * 0.5 });
+                commissionRows.push({ team: 'Contractor', person: 'Contractor Support', type: 'Outside Sales', split: contOut * 0.5 });
+            }
         }
 
         renderCommissionTable();
