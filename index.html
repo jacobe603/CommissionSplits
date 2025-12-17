@@ -500,15 +500,15 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
             { id: 'c3', name: 'Yale Mechanical', outside: [{name: 'Dan M.', split: 100}], inside: [{name: 'Wyatt K.', split: 100}] }
         ],
         specialists: [
-            { id: 's1', name: 'Dadanco', outside: [{name: 'Dan M.', split: 100}], inside: [{name: 'Dan M.', split: 100}] },
-            { id: 's2', name: 'Nortek AHU', outside: [{name: 'Brent', split: 100}], inside: [{name: 'Brent', split: 100}] },
-            { id: 's3', name: 'VRV', outside: [{name: 'Vishal', split: 100}], inside: [{name: 'Vishal', split: 100}] },
-            { id: 's4', name: 'HT Material', outside: [{name: 'Marie', split: 100}], inside: [{name: 'Marie', split: 100}] },
-            { id: 's5', name: 'Geothermal', outside: [{name: 'Vishal', split: 50}, {name: 'Duane', split: 50}], inside: [{name: 'Vishal', split: 50}, {name: 'Duane', split: 50}] },
-            { id: 's6', name: 'Williams IPS', outside: [{name: 'Clint', split: 100}], inside: [{name: 'Clint', split: 100}] },
-            { id: 's7', name: 'Flow Environmental', outside: [{name: 'Duane', split: 100}], inside: [{name: 'Duane', split: 100}] },
-            { id: 's8', name: 'AJ Surgery Suite', outside: [{name: 'Jeff P.', split: 100}], inside: [{name: 'Jeff P.', split: 100}] },
-            { id: 's9', name: 'Coop Purchasing', outside: [{name: 'Duane', split: 100}], inside: [{name: 'Duane', split: 100}] }
+            { id: 's1', name: 'Dadanco', defaultPct: 10, outside: [{name: 'Dan M.', split: 100}], inside: [{name: 'Dan M.', split: 100}] },
+            { id: 's2', name: 'Nortek AHU', defaultPct: 10, outside: [{name: 'Brent', split: 100}], inside: [{name: 'Brent', split: 100}] },
+            { id: 's3', name: 'VRV', defaultPct: 15, outside: [{name: 'Vishal', split: 100}], inside: [{name: 'Vishal', split: 100}] },
+            { id: 's4', name: 'HT Material', defaultPct: 10, outside: [{name: 'Marie', split: 100}], inside: [{name: 'Marie', split: 100}] },
+            { id: 's5', name: 'Geothermal', defaultPct: 20, outside: [{name: 'Vishal', split: 50}, {name: 'Duane', split: 50}], inside: [{name: 'Vishal', split: 50}, {name: 'Duane', split: 50}] },
+            { id: 's6', name: 'Williams IPS', defaultPct: 10, outside: [{name: 'Clint', split: 100}], inside: [{name: 'Clint', split: 100}] },
+            { id: 's7', name: 'Flow Environmental', defaultPct: 10, outside: [{name: 'Duane', split: 100}], inside: [{name: 'Duane', split: 100}] },
+            { id: 's8', name: 'AJ Surgery Suite', defaultPct: 15, outside: [{name: 'Jeff P.', split: 100}], inside: [{name: 'Jeff P.', split: 100}] },
+            { id: 's9', name: 'Coop Purchasing', defaultPct: 10, outside: [{name: 'Duane', split: 100}], inside: [{name: 'Duane', split: 100}] }
         ]
     };
 
@@ -578,6 +578,10 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         } else if (type === 'specialist') {
             currentSplits.specialistOutside = JSON.parse(JSON.stringify(selectedCompany.outside));
             currentSplits.specialistInside = JSON.parse(JSON.stringify(selectedCompany.inside));
+            // Set slider to specialist's default commission percentage if specialist is enabled
+            if (document.getElementById('useSpecialist').checked && selectedCompany.defaultPct) {
+                document.getElementById('specPct').value = selectedCompany.defaultPct;
+            }
         }
 
         updateAll();
@@ -687,7 +691,10 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         const useSpec = document.getElementById('useSpecialist').checked;
         const specSlider = document.getElementById('specPct');
         if (useSpec) {
-            specSlider.value = 10; // Default to 10% when enabled
+            // Get the selected specialist's default commission percentage
+            const selIndex = document.getElementById('sel-specialist').value;
+            const selectedSpec = DB.specialists[selIndex];
+            specSlider.value = selectedSpec.defaultPct || 10;
         } else {
             specSlider.value = 0;
         }
