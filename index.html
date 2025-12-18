@@ -359,111 +359,9 @@
 
     <!-- Calculator Tab -->
     <div id="tab-calculator" class="tab-content active">
-    <div class="top-grid">
-        <div>
-            <div class="controls-grid">
-                <div class="slider-group owner-box">
-                    <div class="toggle-switch" style="background:none; padding:0; margin-bottom:5px;">
-                        <input type="checkbox" id="useOwner" onchange="toggleOwner()">
-                        <label for="useOwner" style="margin:0; color:var(--owner-color);">Add Owner</label>
-                    </div>
-                    <div id="owner-controls" style="opacity:0.5; pointer-events:none;">
-                        <div style="margin-bottom:8px;">
-                            <label style="font-size:0.8em; margin-bottom:3px;">Owner Company</label>
-                            <select id="sel-owner" onchange="loadCompany('owner')" style="width:100%; padding:6px; font-size:0.85em;"></select>
-                        </div>
-                        <div class="slider-header">
-                            <span class="sub-label">Owner Influence</span>
-                            <span id="disp-owner" style="font-weight:bold; color:var(--owner-color);">10%</span>
-                        </div>
-                        <input type="range" id="ownerPct" min="0" max="50" value="0" oninput="updateAll()">
-                    </div>
-                </div>
 
-                <div class="slider-group specialist-box">
-                    <div class="toggle-switch" style="background:none; padding:0; margin-bottom:5px;">
-                        <input type="checkbox" id="useSpecialist" onchange="toggleSpecialist()">
-                        <label for="useSpecialist" style="margin:0; color:var(--spec-color);">Add Specialist</label>
-                    </div>
-                    <div id="spec-controls" style="opacity:0.5; pointer-events:none;">
-                        <div style="margin-bottom:8px;">
-                            <label style="font-size:0.8em; margin-bottom:3px;">Specialist Type</label>
-                            <select id="sel-specialist" onchange="loadCompany('specialist')" style="width:100%; padding:6px; font-size:0.85em;"></select>
-                        </div>
-                        <div class="slider-header">
-                            <span class="sub-label">Outside Split</span>
-                            <span id="disp-spec" style="font-weight:bold; color:var(--spec-color);">0%</span>
-                        </div>
-                        <input type="range" id="specPct" min="0" max="50" value="0" oninput="updateAll()">
-                        <div style="margin-top:5px; font-size:0.75em; color: #666;">
-                            *Deducts 2% from Eng Inside & 2% from Cont Inside
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="slider-group" id="eng-group">
-                <div class="slider-header">
-                    <label>Engineering Influence</label>
-                    <span id="disp-eng-level" style="font-weight:bold; color:var(--eng-color);">Flat Spec (65%)</span>
-                </div>
-                <input type="range" id="engSlider" min="0" max="70" value="35" step="1" oninput="handleEngSlide(this.value)">
-                <div style="position:relative; height:20px; font-size:0.7em; color:#888; margin-top:8px;">
-                    <span onclick="setEngLevel(0)" style="position:absolute; left:0%; transform:translateX(-20%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">None</span>
-                    <span onclick="setEngLevel(17)" style="position:absolute; left:24.3%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Town</span>
-                    <span onclick="setEngLevel(35)" style="position:absolute; left:50%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Equal</span>
-                    <span onclick="setEngLevel(45)" style="position:absolute; left:64.3%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Basis</span>
-                    <span onclick="setEngLevel(55)" style="position:absolute; left:78.6%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Strong</span>
-                    <span onclick="setEngLevel(65)" style="position:absolute; left:92.9%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Flat</span>
-                </div>
-            </div>
-
-            <div class="toggle-switch">
-                <input type="checkbox" id="directSale" onchange="toggleDirectSale()">
-                <label for="directSale" style="margin:0; font-weight:normal;">Contractor Only (Design/Build)</label>
-            </div>
-
-            <div class="toggle-switch" style="border-left: 3px solid var(--eng-color); display: none;">
-                <input type="checkbox" id="engDirected" onchange="updateAll()">
-                <label for="engDirected" style="margin:0; font-weight:normal;">Engineer Directed Owner Sale</label>
-            </div>
-
-            <div id="validation-msg">
-                ⚠️ ERROR: Not enough margin remains to pay the fixed Inside Sales costs.
-            </div>
-
-            <div class="bar-wrapper">
-                <div class="bar-labels">
-                    <span>&larr; Eng Side</span>
-                    <span>Contractor Side &rarr;</span>
-                </div>
-                <div class="bar-container">
-                    <div id="bar-spec-in-left" class="bar-segment bg-spec-in" style="width: 0%">Spec</div>
-                    <div id="bar-in-eng" class="bar-segment bg-inside" style="width: 7%">In Eng</div>
-                    
-                    <div id="bar-eng" class="bar-segment bg-eng" style="width: 0%">Eng</div>
-                    <div id="bar-spec" class="bar-segment bg-spec" style="width: 0%">Spec</div>
-                    <div id="bar-owner" class="bar-segment bg-owner" style="width: 0%">Own</div>
-                    <div id="bar-cont" class="bar-segment bg-cont" style="width: 0%">C</div>
-
-                    <div id="bar-in-cont" class="bar-segment bg-inside" style="width: 5%">In.C</div>
-                    <div id="bar-spec-in-right" class="bar-segment bg-spec-in" style="width: 0%">Spec</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="chart-box">
-            <h3>Total Splits</h3>
-            <div id="pie" class="pie-chart"></div>
-            <div class="legend" id="legend-container"></div>
-        </div>
-    </div>
-
-    <div class="matrix-editor">
-        <h2>Commission Breakdown</h2>
-        <p class="table-note">Select companies below to load their sales reps, or edit the table directly.</p>
-
-        <div class="company-select-grid" style="grid-template-columns: 1fr 1fr;">
+        <!-- Company Selection - First -->
+        <div class="company-select-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 20px;">
             <div>
                 <label>Select Engineer Company (Quote Team)</label>
                 <select id="sel-eng" onchange="loadCompany('engineer')"></select>
@@ -474,30 +372,141 @@
             </div>
         </div>
 
-        <table class="commission-table">
-            <thead>
-                <tr>
-                    <th style="width:20%">Team</th>
-                    <th style="width:25%">Salesperson</th>
-                    <th style="width:20%">Commission Type</th>
-                    <th style="width:15%">Split %</th>
-                    <th style="width:15%">Final %</th>
-                    <th style="width:5%"></th>
-                </tr>
-            </thead>
-            <tbody id="commission-table-body">
-                <!-- Rows generated by JavaScript -->
-            </tbody>
-        </table>
-
-        <button class="add-row-btn" onclick="addCommissionRow()">+ Add Row</button>
-
-        <div class="table-footer">
-            <span class="total-label">Total Commission</span>
-            <span class="total-value" id="total-commission">100.00%</span>
+        <!-- Engineering Slider -->
+        <div class="slider-group" id="eng-group">
+            <div class="slider-header">
+                <label>Engineering Influence</label>
+                <span id="disp-eng-level" style="font-weight:bold; color:var(--eng-color);">Flat Spec (65%)</span>
+            </div>
+            <input type="range" id="engSlider" min="0" max="70" value="35" step="1" oninput="handleEngSlide(this.value)">
+            <div style="position:relative; height:20px; font-size:0.7em; color:#888; margin-top:8px;">
+                <span onclick="setEngLevel(0)" style="position:absolute; left:0%; transform:translateX(-20%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">None</span>
+                <span onclick="setEngLevel(17)" style="position:absolute; left:24.3%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Town</span>
+                <span onclick="setEngLevel(35)" style="position:absolute; left:50%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Equal</span>
+                <span onclick="setEngLevel(45)" style="position:absolute; left:64.3%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Basis</span>
+                <span onclick="setEngLevel(55)" style="position:absolute; left:78.6%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Strong</span>
+                <span onclick="setEngLevel(65)" style="position:absolute; left:92.9%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Flat</span>
+            </div>
         </div>
-    </div>
+
+        <!-- Contractor Only Checkbox -->
+        <div class="toggle-switch">
+            <input type="checkbox" id="directSale" onchange="toggleDirectSale()">
+            <label for="directSale" style="margin:0; font-weight:normal;">Contractor Only (Design/Build)</label>
+        </div>
+
+        <div class="toggle-switch" style="border-left: 3px solid var(--eng-color); display: none;">
+            <input type="checkbox" id="engDirected" onchange="updateAll()">
+            <label for="engDirected" style="margin:0; font-weight:normal;">Engineer Directed Owner Sale</label>
+        </div>
+
+        <div id="validation-msg">
+            ⚠️ ERROR: Not enough margin remains to pay the fixed Inside Sales costs.
+        </div>
+
+        <!-- Bar Graph and Pie Chart -->
+        <div class="top-grid">
+            <div>
+                <div class="bar-wrapper" style="margin-top: 15px;">
+                    <div class="bar-labels">
+                        <span>&larr; Eng Side</span>
+                        <span>Contractor Side &rarr;</span>
+                    </div>
+                    <div class="bar-container">
+                        <div id="bar-spec-in-left" class="bar-segment bg-spec-in" style="width: 0%">Spec</div>
+                        <div id="bar-in-eng" class="bar-segment bg-inside" style="width: 7%">In Eng</div>
+
+                        <div id="bar-eng" class="bar-segment bg-eng" style="width: 0%">Eng</div>
+                        <div id="bar-spec" class="bar-segment bg-spec" style="width: 0%">Spec</div>
+                        <div id="bar-owner" class="bar-segment bg-owner" style="width: 0%">Own</div>
+                        <div id="bar-cont" class="bar-segment bg-cont" style="width: 0%">C</div>
+
+                        <div id="bar-in-cont" class="bar-segment bg-inside" style="width: 5%">In.C</div>
+                        <div id="bar-spec-in-right" class="bar-segment bg-spec-in" style="width: 0%">Spec</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-box">
+                <h3>Total Splits</h3>
+                <div id="pie" class="pie-chart"></div>
+                <div class="legend" id="legend-container"></div>
+            </div>
+        </div>
+
+        <!-- Add Owner and Add Specialist - Below Bar Graph -->
+        <div class="controls-grid" style="margin-top: 20px;">
+            <div class="slider-group owner-box">
+                <div class="toggle-switch" style="background:none; padding:0; margin-bottom:5px;">
+                    <input type="checkbox" id="useOwner" onchange="toggleOwner()">
+                    <label for="useOwner" style="margin:0; color:var(--owner-color);">Add Owner</label>
+                </div>
+                <div id="owner-controls" style="display:none;">
+                    <div style="margin-bottom:8px;">
+                        <label style="font-size:0.8em; margin-bottom:3px;">Owner Company</label>
+                        <select id="sel-owner" onchange="loadCompany('owner')" style="width:100%; padding:6px; font-size:0.85em;"></select>
+                    </div>
+                    <div class="slider-header">
+                        <span class="sub-label">Owner Influence</span>
+                        <span id="disp-owner" style="font-weight:bold; color:var(--owner-color);">10%</span>
+                    </div>
+                    <input type="range" id="ownerPct" min="0" max="50" value="0" oninput="updateAll()">
+                </div>
+            </div>
+
+            <div class="slider-group specialist-box">
+                <div class="toggle-switch" style="background:none; padding:0; margin-bottom:5px;">
+                    <input type="checkbox" id="useSpecialist" onchange="toggleSpecialist()">
+                    <label for="useSpecialist" style="margin:0; color:var(--spec-color);">Add Specialist</label>
+                </div>
+                <div id="spec-controls" style="display:none;">
+                    <div style="margin-bottom:8px;">
+                        <label style="font-size:0.8em; margin-bottom:3px;">Specialist Type</label>
+                        <select id="sel-specialist" onchange="loadCompany('specialist')" style="width:100%; padding:6px; font-size:0.85em;"></select>
+                    </div>
+                    <div class="slider-header">
+                        <span class="sub-label">Outside Split</span>
+                        <span id="disp-spec" style="font-weight:bold; color:var(--spec-color);">0%</span>
+                    </div>
+                    <input type="range" id="specPct" min="0" max="50" value="0" oninput="updateAll()">
+                    <div style="margin-top:5px; font-size:0.75em; color: #666;">
+                        *Deducts 2% from Eng Inside & 2% from Cont Inside
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Commission Breakdown Table -->
+        <div class="matrix-editor">
+            <h2>Commission Breakdown</h2>
+            <p class="table-note">Edit the table directly to adjust individual rep splits.</p>
+
+            <table class="commission-table">
+                <thead>
+                    <tr>
+                        <th style="width:20%">Team</th>
+                        <th style="width:25%">Salesperson</th>
+                        <th style="width:20%">Commission Type</th>
+                        <th style="width:15%">Split %</th>
+                        <th style="width:15%">Final %</th>
+                        <th style="width:5%"></th>
+                    </tr>
+                </thead>
+                <tbody id="commission-table-body">
+                    <!-- Rows generated by JavaScript -->
+                </tbody>
+            </table>
+
+            <button class="add-row-btn" onclick="addCommissionRow()">+ Add Row</button>
+
+            <div class="table-footer">
+                <span class="total-label">Total Commission</span>
+                <span class="total-value" id="total-commission">100.00%</span>
+                <button onclick="copyForAHK()" style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.5); color:white; padding:8px 16px; border-radius:4px; cursor:pointer; font-size:0.85em;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">Copy for AHK</button>
+            </div>
+        </div>
     </div><!-- End Calculator Tab -->
+
 
     <!-- Commission Matrix Tab -->
     <div id="tab-commission-matrix" class="tab-content">
@@ -1408,6 +1417,63 @@ function refreshDropdowns() {
         renderCommissionTable();
     }
 
+    function copyForAHK() {
+        // Format: lastname3chars,teamletter,percent (tab separated)
+        // Example: fro,e,14	foss,c,60	erb,e,7
+
+        const entries = [];
+
+        commissionRows.forEach(row => {
+            if (!row.person || row.split <= 0) return;
+
+            // Only include Engineering, Contractor, and Owner
+            const team = row.team.toLowerCase();
+            let teamLetter = '';
+            if (team === 'engineering') teamLetter = 'e';
+            else if (team === 'contractor') teamLetter = 'c';
+            else if (team === 'owner') teamLetter = 'o';
+            else return; // Skip specialist and others
+
+            // Get last name (last word in name, or whole name if single word)
+            const nameParts = row.person.trim().split(/\s+/);
+            const lastName = nameParts[nameParts.length - 1];
+            const nameCode = lastName.substring(0, 3).toLowerCase();
+
+            // Get percentage (rounded to whole number)
+            const pct = Math.round(row.split);
+
+            entries.push(nameCode + ',' + teamLetter + ',' + pct);
+        });
+        
+        const result = entries.join('	');
+
+        // Copy to clipboard using fallback method (works on file:// URLs)
+        const textarea = document.createElement('textarea');
+        textarea.value = result;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+
+        try {
+            document.execCommand('copy');
+            // Brief visual feedback
+            const btn = event.target;
+            const origText = btn.innerText;
+            btn.innerText = 'Copied!';
+            btn.style.background = 'rgba(46, 204, 113, 0.5)';
+            setTimeout(() => {
+                btn.innerText = origText;
+                btn.style.background = 'rgba(255,255,255,0.2)';
+            }, 1500);
+        } catch (err) {
+            console.error('Failed to copy:', err);
+            alert('Failed to copy to clipboard');
+        }
+
+        document.body.removeChild(textarea);
+    }
+
     function updateTotal() {
         const total = commissionRows.reduce((sum, row) => sum + row.split, 0);
         const el = document.getElementById('total-commission');
@@ -1463,9 +1529,12 @@ function refreshDropdowns() {
     function toggleOwner() {
         const useOwner = document.getElementById('useOwner').checked;
         const ownerSlider = document.getElementById('ownerPct');
+        const ownerControls = document.getElementById('owner-controls');
         if (useOwner) {
+            ownerControls.style.display = 'block';
             ownerSlider.value = 10; // Default to 10% when enabled
         } else {
+            ownerControls.style.display = 'none';
             ownerSlider.value = 0;
         }
         updateAll();
@@ -1474,12 +1543,15 @@ function refreshDropdowns() {
     function toggleSpecialist() {
         const useSpec = document.getElementById('useSpecialist').checked;
         const specSlider = document.getElementById('specPct');
+        const specControls = document.getElementById('spec-controls');
         if (useSpec) {
+            specControls.style.display = 'block';
             // Get the selected specialist's default commission percentage
             const selIndex = document.getElementById('sel-specialist').value;
             const selectedSpec = DB.specialists[selIndex];
             specSlider.value = selectedSpec.defaultPct || 10;
         } else {
+            specControls.style.display = 'none';
             specSlider.value = 0;
         }
         updateAll();
@@ -1497,15 +1569,9 @@ function refreshDropdowns() {
 
         // UI State - Owner controls
         document.getElementById('disp-owner').innerText = ownerPct + "%";
-        const ownerControls = document.getElementById('owner-controls');
-        ownerControls.style.opacity = useOwner ? "1" : "0.5";
-        ownerControls.style.pointerEvents = useOwner ? "auto" : "none";
 
         // UI State - Specialist controls
         document.getElementById('disp-spec').innerText = specPct + "%";
-        const specControls = document.getElementById('spec-controls');
-        specControls.style.opacity = useSpec ? "1" : "0.5";
-        specControls.style.pointerEvents = useSpec ? "auto" : "none";
 
         // UI State - Engineering controls (only disabled for Eng Directed, not Contractor Only since slider syncs with checkbox)
         document.getElementById('eng-group').style.opacity = isEngDirected ? '0.3' : '1';
