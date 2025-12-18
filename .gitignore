@@ -1,0 +1,15 @@
+# Excel data files (contains sensitive commission data)
+*.xlsx
+*.xls
+
+# Data directory
+/data/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~

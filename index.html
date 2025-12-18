@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SVL Commission Calculator v4</title>
+    <!-- SheetJS for Excel file parsing -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
         :root {
             --primary: #2c3e50;
@@ -191,6 +193,73 @@
         .matrix-card-body .rep-name { color: #333; }
         .matrix-card-body .rep-split { color: #666; font-weight: 500; }
         .specialist-type-label { font-size: 0.75em; opacity: 0.9; font-weight: normal; }
+
+        /* Data Loading Panel */
+        .data-load-panel { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;
+        }
+        .data-load-panel h3 { margin: 0 0 15px 0; font-size: 1.1em; }
+        .data-load-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+        .data-load-item { background: rgba(255,255,255,0.15); padding: 15px; border-radius: 6px; }
+        .data-load-item label { color: white; font-size: 0.85em; margin-bottom: 8px; }
+        .data-load-item input[type="file"] { 
+            width: 100%; padding: 8px; background: white; border: none; 
+            border-radius: 4px; font-size: 0.8em; cursor: pointer;
+        }
+        .data-load-status { 
+            margin-top: 5px; font-size: 0.75em; padding: 4px 8px; 
+            border-radius: 3px; display: inline-block;
+        }
+        .data-load-status.loaded { background: rgba(46, 204, 113, 0.3); }
+        .data-load-status.pending { background: rgba(255, 255, 255, 0.2); }
+        .data-load-count { font-size: 0.8em; opacity: 0.9; margin-top: 8px; }
+        
+        /* Validation Panel */
+        .validation-panel { 
+            background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; 
+            padding: 20px; margin-top: 15px; display: none;
+        }
+        .validation-panel.has-errors { display: block; }
+        .validation-panel h4 { color: #856404; margin: 0 0 15px 0; display: flex; align-items: center; gap: 8px; }
+        .validation-panel .error-list { max-height: 300px; overflow-y: auto; }
+        .validation-item { 
+            background: white; padding: 10px 15px; border-radius: 4px; margin-bottom: 8px;
+            border-left: 3px solid #dc3545; font-size: 0.85em;
+        }
+        .validation-item .company-name { font-weight: bold; color: #333; }
+        .validation-item .error-detail { color: #666; margin-top: 4px; }
+        .validation-summary { font-size: 0.9em; color: #856404; margin-bottom: 10px; }
+        
+        /* Quick Load Section */
+        .quick-load-section {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white; padding: 20px; border-radius: 8px; margin-bottom: 15px;
+        }
+        .quick-load-section h3 { margin: 0 0 10px 0; display: flex; align-items: center; gap: 10px; }
+        .quick-load-section p { font-size: 0.85em; opacity: 0.9; margin-bottom: 15px; }
+        .quick-load-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+        .quick-load-btn {
+            background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5);
+            color: white; padding: 12px 24px; border-radius: 6px; cursor: pointer;
+            font-size: 0.95em; font-weight: 600; transition: all 0.2s;
+        }
+        .quick-load-btn:hover { background: rgba(255,255,255,0.3); border-color: white; }
+        .quick-load-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .quick-load-btn.primary { background: white; color: #11998e; border-color: white; }
+        .quick-load-btn.primary:hover { background: #f0f0f0; }
+        .folder-status { 
+            margin-top: 15px; padding: 10px 15px; background: rgba(255,255,255,0.15); 
+            border-radius: 6px; font-size: 0.85em; display: none;
+        }
+        .folder-status.visible { display: block; }
+        .folder-status .folder-path { font-weight: 600; }
+        .folder-status .file-list { margin-top: 8px; opacity: 0.9; }
+        .manual-section-header {
+            display: flex; align-items: center; gap: 10px; margin-bottom: 15px;
+            padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.3);
+        }
+        .manual-section-header span { font-size: 0.85em; opacity: 0.8; }
     </style>
 </head>
 <body>
@@ -205,9 +274,87 @@
 
     <!-- Tab Navigation -->
     <div class="tab-nav">
+        <button class="tab-btn" onclick="switchTab('load-data')">Load Data</button>
         <button class="tab-btn active" onclick="switchTab('calculator')">Calculator</button>
         <button class="tab-btn" onclick="switchTab('commission-matrix')">Commission Matrix</button>
         <button class="tab-btn" onclick="switchTab('specialist-matrix')">Specialist Matrix</button>
+    </div>
+
+    <!-- Load Data Tab -->
+    <div id="tab-load-data" class="tab-content">
+        <!-- Quick Load Section -->
+        <div class="quick-load-section">
+            <h3>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                Quick Load from Folder
+            </h3>
+            <p>Select your data folder once, then reconnect with one click on future visits. Files are matched by name (Engineer*, Contractor*, Owner*).</p>
+            <div class="quick-load-buttons">
+                <button id="btn-select-folder" class="quick-load-btn primary" onclick="selectDataFolder()">Select Data Folder</button>
+                <button id="btn-reconnect" class="quick-load-btn" onclick="reconnectFolder()" style="display:none;">Reconnect</button>
+                <button id="btn-forget" class="quick-load-btn" onclick="forgetFolder()" style="display:none;">Forget Folder</button>
+            </div>
+            <div id="folder-status" class="folder-status">
+                <div class="folder-path" id="folder-path-display"></div>
+                <div class="file-list" id="folder-files-display"></div>
+            </div>
+        </div>
+
+        <div class="data-load-panel">
+            <div class="manual-section-header">
+                <h3 style="margin:0;">Manual File Selection</h3>
+                <span>(or select files individually below)</span>
+            </div>
+            <p style="font-size:0.85em; opacity:0.9; margin-bottom:15px;">
+                Data will be loaded for the <strong>Vent</strong> product line by default.
+            </p>
+            <div class="data-load-grid">
+                <div class="data-load-item">
+                    <label>Engineers Account List</label>
+                    <input type="file" id="file-engineers" accept=".xlsx,.xls" onchange="loadExcelFile(this, 'engineers')">
+                    <div id="status-engineers" class="data-load-status pending">Not loaded</div>
+                    <div id="count-engineers" class="data-load-count"></div>
+                </div>
+                <div class="data-load-item">
+                    <label>Contractors Account List</label>
+                    <input type="file" id="file-contractors" accept=".xlsx,.xls" onchange="loadExcelFile(this, 'contractors')">
+                    <div id="status-contractors" class="data-load-status pending">Not loaded</div>
+                    <div id="count-contractors" class="data-load-count"></div>
+                </div>
+                <div class="data-load-item">
+                    <label>Owners Account List</label>
+                    <input type="file" id="file-owners" accept=".xlsx,.xls" onchange="loadExcelFile(this, 'owners')">
+                    <div id="status-owners" class="data-load-status pending">Not loaded</div>
+                    <div id="count-owners" class="data-load-count"></div>
+                </div>
+            </div>
+        </div>
+        <div style="background:#f8f9fa; padding:20px; border-radius:8px; margin-top:15px;">
+            <h4 style="color:var(--primary); margin:0 0 10px 0;">Expected File Format</h4>
+            <p style="font-size:0.9em; color:#666; margin-bottom:10px;">
+                Your Excel files should have the following columns (row 2 = headers, data starts row 3):
+            </p>
+            <ul style="font-size:0.85em; color:#555; margin:0; padding-left:20px;">
+                <li><strong>Engineers/Contractors:</strong> Company, City, State, Vent Outside Sales #1, Vent % #1, Vent Outside Sales #2, Vent % #2, ..., Inside Sales</li>
+                <li><strong>Owners:</strong> Company, City, State, Outside Sales, %, Outside Sales2, Percent, Inside Sales</li>
+            </ul>
+        </div>
+        
+        <!-- Validation Errors Panel -->
+        <div id="validation-panel" class="validation-panel">
+            <h4>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#856404" stroke-width="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                Data Validation Issues
+            </h4>
+            <div id="validation-summary" class="validation-summary"></div>
+            <div id="validation-errors" class="error-list"></div>
+        </div>
     </div>
 
     <!-- Calculator Tab -->
@@ -260,18 +407,19 @@
                     <label>Engineering Influence</label>
                     <span id="disp-eng-level" style="font-weight:bold; color:var(--eng-color);">Flat Spec (65%)</span>
                 </div>
-                <input type="range" id="engSlider" min="15" max="70" value="35" step="1" oninput="handleEngSlide(this.value)">
+                <input type="range" id="engSlider" min="0" max="70" value="35" step="1" oninput="handleEngSlide(this.value)">
                 <div style="position:relative; height:20px; font-size:0.7em; color:#888; margin-top:8px;">
-                    <span onclick="setEngLevel(17)" style="position:absolute; left:3.6%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Town</span>
-                    <span onclick="setEngLevel(35)" style="position:absolute; left:36.4%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Equal</span>
-                    <span onclick="setEngLevel(45)" style="position:absolute; left:54.5%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Basis</span>
-                    <span onclick="setEngLevel(55)" style="position:absolute; left:72.7%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Strong</span>
-                    <span onclick="setEngLevel(65)" style="position:absolute; left:90.9%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Flat</span>
+                    <span onclick="setEngLevel(0)" style="position:absolute; left:0%; transform:translateX(-20%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">None</span>
+                    <span onclick="setEngLevel(17)" style="position:absolute; left:24.3%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Town</span>
+                    <span onclick="setEngLevel(35)" style="position:absolute; left:50%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Equal</span>
+                    <span onclick="setEngLevel(45)" style="position:absolute; left:64.3%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Basis</span>
+                    <span onclick="setEngLevel(55)" style="position:absolute; left:78.6%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Strong</span>
+                    <span onclick="setEngLevel(65)" style="position:absolute; left:92.9%; transform:translateX(-50%); cursor:pointer; padding:2px 4px; border-radius:3px;" onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background='transparent'">Flat</span>
                 </div>
             </div>
 
             <div class="toggle-switch">
-                <input type="checkbox" id="directSale" onchange="updateAll()">
+                <input type="checkbox" id="directSale" onchange="toggleDirectSale()">
                 <label for="directSale" style="margin:0; font-weight:normal;">Contractor Only (Design/Build)</label>
             </div>
 
@@ -483,7 +631,7 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
     let commissionRows = [];
 
     // --- MOCK DATABASE ---
-    const DB = {
+    let DB = {
         owners: [
             { id: 'o1', name: 'None / Direct', outside: [], inside: [] },
             { id: 'o2', name: 'Global Properties', outside: [{name: 'Ben E.', split: 100}], inside: [{name: 'Jacob E.', split: 100}] },
@@ -512,6 +660,618 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         ]
     };
 
+    // --- EXCEL DATA LOADING ---
+// Current product line (for future dropdown: 'vent', 'hydronic', 'industrial')
+let currentProductLine = 'vent';
+
+// Raw data storage (all product lines from Excel)
+let excelData = {
+    engineers: [],
+    contractors: [],
+    owners: []
+};
+
+async function loadExcelFile(input, type) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const statusEl = document.getElementById('status-' + type);
+    const countEl = document.getElementById('count-' + type);
+    statusEl.className = 'data-load-status pending';
+    statusEl.innerText = 'Loading...';
+
+    try {
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data);
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+        // Parse based on type
+        let parsed = [];
+        if (type === 'engineers') {
+            parsed = parseEngineersExcel(rows);
+        } else if (type === 'contractors') {
+            parsed = parseContractorsExcel(rows);
+        } else if (type === 'owners') {
+            parsed = parseOwnersExcel(rows);
+        }
+
+        excelData[type] = parsed;
+
+        // Update DB with current product line data
+        updateDBFromExcel(type);
+
+        // Update UI
+        statusEl.className = 'data-load-status loaded';
+        statusEl.innerText = 'Loaded!';
+        countEl.innerText = parsed.length + ' companies';
+
+        // Refresh dropdowns
+        refreshDropdowns();
+        
+        // Run validation
+        validateAllData();
+
+    } catch (err) {
+        console.error('Error loading Excel:', err);
+        statusEl.className = 'data-load-status pending';
+        statusEl.innerText = 'Error: ' + err.message;
+    }
+}
+
+// Validation storage
+let validationErrors = [];
+
+function validateAllData() {
+    validationErrors = [];
+    
+    // Validate each loaded dataset
+    ['engineers', 'contractors', 'owners'].forEach(type => {
+        const data = excelData[type];
+        if (!data || data.length === 0) return;
+        
+        data.forEach(company => {
+            // Check Vent outside sales splits
+            if (company.vent && company.vent.outside.length > 0) {
+                const ventTotal = company.vent.outside.reduce((sum, rep) => sum + (rep.split || 0), 0);
+                if (Math.abs(ventTotal - 100) > 0.5) {
+                    validationErrors.push({
+                        type: type,
+                        company: company.name,
+                        field: 'Vent Outside Sales',
+                        total: ventTotal,
+                        reps: company.vent.outside.map(r => r.name + ' (' + r.split + '%)').join(', ')
+                    });
+                }
+            }
+            
+            // Check Hydronic outside sales splits
+            if (company.hydronic && company.hydronic.outside.length > 0) {
+                const hydroTotal = company.hydronic.outside.reduce((sum, rep) => sum + (rep.split || 0), 0);
+                if (Math.abs(hydroTotal - 100) > 0.5) {
+                    validationErrors.push({
+                        type: type,
+                        company: company.name,
+                        field: 'Hydronic Outside Sales',
+                        total: hydroTotal,
+                        reps: company.hydronic.outside.map(r => r.name + ' (' + r.split + '%)').join(', ')
+                    });
+                }
+            }
+        });
+    });
+    
+    // Update validation panel
+    displayValidationErrors();
+}
+
+function displayValidationErrors() {
+    const panel = document.getElementById('validation-panel');
+    const summary = document.getElementById('validation-summary');
+    const errorList = document.getElementById('validation-errors');
+    
+    if (validationErrors.length === 0) {
+        panel.classList.remove('has-errors');
+        return;
+    }
+    
+    panel.classList.add('has-errors');
+    summary.innerText = 'Found ' + validationErrors.length + ' companies where outside sales splits do not add up to 100%:';
+    
+    let html = '';
+    validationErrors.forEach(err => {
+        const typeLabel = err.type.charAt(0).toUpperCase() + err.type.slice(1);
+        html += '<div class="validation-item">';
+        html += '<div class="company-name">' + err.company + ' <span style="color:#999; font-weight:normal;">(' + typeLabel + ')</span></div>';
+        html += '<div class="error-detail">' + err.field + ': ' + err.reps + ' = <strong style="color:#dc3545;">' + err.total.toFixed(1) + '%</strong> (should be 100%)</div>';
+        html += '</div>';
+    });
+    
+    errorList.innerHTML = html;
+}
+
+// --- FILE SYSTEM ACCESS API ---
+const DB_NAME = 'CommissionSplitsDB';
+const STORE_NAME = 'folderHandles';
+let storedFolderHandle = null;
+
+// IndexedDB helpers
+function openDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        request.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME);
+            }
+        };
+    });
+}
+
+async function saveFolderHandle(handle) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.put(handle, 'dataFolder');
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve();
+    });
+}
+
+async function loadFolderHandle() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.get('dataFolder');
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+    });
+}
+
+async function deleteFolderHandle() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const request = store.delete('dataFolder');
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve();
+    });
+}
+
+// File System Access API functions
+async function selectDataFolder() {
+    try {
+        // Check if API is supported
+        if (!('showDirectoryPicker' in window)) {
+            alert('Your browser does not support the File System Access API. Please use Chrome or Edge.');
+            return;
+        }
+
+        const handle = await window.showDirectoryPicker();
+        storedFolderHandle = handle;
+        await saveFolderHandle(handle);
+        await loadFilesFromFolder(handle);
+        updateFolderUI(true, handle.name);
+    } catch (err) {
+        if (err.name !== 'AbortError') {
+            console.error('Error selecting folder:', err);
+            alert('Error selecting folder: ' + err.message);
+        }
+    }
+}
+
+async function reconnectFolder() {
+    try {
+        const handle = await loadFolderHandle();
+        if (!handle) {
+            alert('No folder stored. Please select a folder first.');
+            return;
+        }
+
+        // Request permission
+        const permission = await handle.requestPermission({ mode: 'read' });
+        if (permission !== 'granted') {
+            alert('Permission denied. Please grant access to the folder.');
+            return;
+        }
+
+        storedFolderHandle = handle;
+        await loadFilesFromFolder(handle);
+        updateFolderUI(true, handle.name);
+    } catch (err) {
+        console.error('Error reconnecting:', err);
+        alert('Error reconnecting: ' + err.message);
+    }
+}
+
+async function forgetFolder() {
+    try {
+        await deleteFolderHandle();
+        storedFolderHandle = null;
+        updateFolderUI(false);
+
+        // Reset status displays
+        ['engineers', 'contractors', 'owners'].forEach(type => {
+            document.getElementById('status-' + type).className = 'data-load-status pending';
+            document.getElementById('status-' + type).innerText = 'Not loaded';
+            document.getElementById('count-' + type).innerText = '';
+        });
+
+        // Hide validation panel
+        document.getElementById('validation-panel').classList.remove('has-errors');
+    } catch (err) {
+        console.error('Error forgetting folder:', err);
+    }
+}
+
+async function loadFilesFromFolder(folderHandle) {
+    const fileMatches = {
+        engineers: null,
+        contractors: null,
+        owners: null
+    };
+
+    // Scan folder for matching files
+    for await (const entry of folderHandle.values()) {
+        if (entry.kind === 'file' && (entry.name.endsWith('.xlsx') || entry.name.endsWith('.xls'))) {
+            const nameLower = entry.name.toLowerCase();
+            if (nameLower.includes('engineer')) {
+                fileMatches.engineers = entry;
+            } else if (nameLower.includes('contractor')) {
+                fileMatches.contractors = entry;
+            } else if (nameLower.includes('owner')) {
+                fileMatches.owners = entry;
+            }
+        }
+    }
+
+    // Update folder status display
+    const foundFiles = [];
+    if (fileMatches.engineers) foundFiles.push('Engineers: ' + fileMatches.engineers.name);
+    if (fileMatches.contractors) foundFiles.push('Contractors: ' + fileMatches.contractors.name);
+    if (fileMatches.owners) foundFiles.push('Owners: ' + fileMatches.owners.name);
+
+    document.getElementById('folder-files-display').innerHTML =
+        foundFiles.length > 0 ? 'Found: ' + foundFiles.join(', ') : 'No matching files found';
+
+    // Load each matched file
+    for (const [type, fileHandle] of Object.entries(fileMatches)) {
+        if (fileHandle) {
+            try {
+                const file = await fileHandle.getFile();
+                await loadExcelFileFromFile(file, type);
+            } catch (err) {
+                console.error('Error loading ' + type + ':', err);
+            }
+        }
+    }
+}
+
+async function loadExcelFileFromFile(file, type) {
+    const statusEl = document.getElementById('status-' + type);
+    const countEl = document.getElementById('count-' + type);
+    statusEl.className = 'data-load-status pending';
+    statusEl.innerText = 'Loading...';
+
+    try {
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data);
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+        let parsed = [];
+        if (type === 'engineers') {
+            parsed = parseEngineersExcel(rows);
+        } else if (type === 'contractors') {
+            parsed = parseContractorsExcel(rows);
+        } else if (type === 'owners') {
+            parsed = parseOwnersExcel(rows);
+        }
+
+        excelData[type] = parsed;
+        updateDBFromExcel(type);
+
+        statusEl.className = 'data-load-status loaded';
+        statusEl.innerText = 'Loaded!';
+        countEl.innerText = parsed.length + ' companies';
+
+        refreshDropdowns();
+        validateAllData();
+    } catch (err) {
+        console.error('Error loading Excel:', err);
+        statusEl.className = 'data-load-status pending';
+        statusEl.innerText = 'Error: ' + err.message;
+    }
+}
+
+function updateFolderUI(hasFolder, folderName) {
+    const selectBtn = document.getElementById('btn-select-folder');
+    const reconnectBtn = document.getElementById('btn-reconnect');
+    const forgetBtn = document.getElementById('btn-forget');
+    const statusDiv = document.getElementById('folder-status');
+    const pathDisplay = document.getElementById('folder-path-display');
+
+    if (hasFolder) {
+        selectBtn.style.display = 'none';
+        reconnectBtn.style.display = 'inline-block';
+        forgetBtn.style.display = 'inline-block';
+        statusDiv.classList.add('visible');
+        pathDisplay.innerText = 'Folder: ' + folderName;
+    } else {
+        selectBtn.style.display = 'inline-block';
+        reconnectBtn.style.display = 'none';
+        forgetBtn.style.display = 'none';
+        statusDiv.classList.remove('visible');
+    }
+}
+
+// Check for stored folder on page load
+async function checkStoredFolder() {
+    try {
+        const handle = await loadFolderHandle();
+        if (handle) {
+            storedFolderHandle = handle;
+            // Show reconnect button but don't auto-load (needs permission)
+            document.getElementById('btn-select-folder').style.display = 'none';
+            document.getElementById('btn-reconnect').style.display = 'inline-block';
+            document.getElementById('btn-forget').style.display = 'inline-block';
+            document.getElementById('folder-status').classList.add('visible');
+            document.getElementById('folder-path-display').innerText = 'Folder: ' + handle.name + ' (click Reconnect to load)';
+            document.getElementById('folder-files-display').innerText = '';
+        }
+    } catch (err) {
+        console.error('Error checking stored folder:', err);
+    }
+}
+
+// Run on page load
+checkStoredFolder();
+
+
+function parseEngineersExcel(rows) {
+    // Row 0: title, Row 1: headers, Data starts Row 2
+    const companies = [];
+    for (let i = 2; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || !row[0]) continue; // Skip empty rows
+
+        const company = {
+            id: 'e' + i,
+            name: String(row[0] || '').trim(),
+            city: String(row[1] || '').trim(),
+            state: String(row[2] || '').trim(),
+            // Vent product line
+            vent: {
+                outside: [],
+                inside: row[9] ? [{ name: String(row[9]).trim(), split: 100 }] : []
+            },
+            // Hydronic product line
+            hydronic: {
+                outside: [],
+                inside: row[14] ? [{ name: String(row[14]).trim(), split: 100 }] : []
+            },
+            // Industrial product line
+            industrial: {
+                outside: row[15] ? [{ name: String(row[15]).trim(), split: 100 }] : [],
+                inside: []
+            }
+        };
+
+        // Vent Outside Sales #1 (col 3) with % (col 4)
+        if (row[3]) {
+            let pct = parseFloat(row[4]) || 100;
+            if (pct <= 1) pct = pct * 100; // Convert decimal to percent
+            company.vent.outside.push({ name: String(row[3]).trim(), split: pct });
+        }
+        // Vent Outside Sales #2 (col 5) with % (col 6)
+        if (row[5]) {
+            let pct = parseFloat(row[6]) || 0;
+            if (pct <= 1) pct = pct * 100;
+            if (pct > 0) company.vent.outside.push({ name: String(row[5]).trim(), split: pct });
+        }
+        // Vent Outside Sales #3 (col 7) with % (col 8)
+        if (row[7]) {
+            let pct = parseFloat(row[8]) || 0;
+            if (pct <= 1) pct = pct * 100;
+            if (pct > 0) company.vent.outside.push({ name: String(row[7]).trim(), split: pct });
+        }
+
+        // Hydronic Outside Sales #1 (col 10) with % (col 11)
+        if (row[10]) {
+            let pct = parseFloat(row[11]) || 100;
+            if (pct <= 1) pct = pct * 100;
+            company.hydronic.outside.push({ name: String(row[10]).trim(), split: pct });
+        }
+        // Hydronic Outside Sales #2 (col 12) with % (col 13)
+        if (row[12]) {
+            let pct = parseFloat(row[13]) || 0;
+            if (pct <= 1) pct = pct * 100;
+            if (pct > 0) company.hydronic.outside.push({ name: String(row[12]).trim(), split: pct });
+        }
+
+        companies.push(company);
+    }
+    return companies;
+}
+
+function parseContractorsExcel(rows) {
+    // Similar structure to Engineers but with more columns
+    const companies = [];
+    for (let i = 2; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || !row[0]) continue;
+
+        const company = {
+            id: 'c' + i,
+            name: String(row[0] || '').trim(),
+            city: String(row[1] || '').trim(),
+            state: String(row[2] || '').trim(),
+            vent: {
+                outside: [],
+                inside: row[9] ? [{ name: String(row[9]).trim(), split: 100 }] : []
+            },
+            hydronic: {
+                outside: [],
+                inside: row[14] ? [{ name: String(row[14]).trim(), split: 100 }] : []
+            },
+            industrial: {
+                outside: row[15] ? [{ name: String(row[15]).trim(), split: 100 }] : [],
+                inside: []
+            }
+        };
+
+        // Vent Outside Sales #1-3
+        if (row[3]) {
+            let pct = parseFloat(row[4]) || 100;
+            if (pct <= 1) pct = pct * 100;
+            company.vent.outside.push({ name: String(row[3]).trim(), split: pct });
+        }
+        if (row[5]) {
+            let pct = parseFloat(row[6]) || 0;
+            if (pct <= 1) pct = pct * 100;
+            if (pct > 0) company.vent.outside.push({ name: String(row[5]).trim(), split: pct });
+        }
+        if (row[7]) {
+            let pct = parseFloat(row[8]) || 0;
+            if (pct <= 1) pct = pct * 100;
+            if (pct > 0) company.vent.outside.push({ name: String(row[7]).trim(), split: pct });
+        }
+
+        // Hydronic Outside Sales #1-2
+        if (row[10]) {
+            let pct = parseFloat(row[11]) || 100;
+            if (pct <= 1) pct = pct * 100;
+            company.hydronic.outside.push({ name: String(row[10]).trim(), split: pct });
+        }
+        if (row[12]) {
+            let pct = parseFloat(row[13]) || 0;
+            if (pct <= 1) pct = pct * 100;
+            if (pct > 0) company.hydronic.outside.push({ name: String(row[12]).trim(), split: pct });
+        }
+
+        companies.push(company);
+    }
+    return companies;
+}
+
+function parseOwnersExcel(rows) {
+    // Owners have simpler structure
+    const companies = [];
+    for (let i = 2; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || !row[0]) continue;
+
+        const company = {
+            id: 'o' + i,
+            name: String(row[0] || '').trim(),
+            city: String(row[1] || '').trim(),
+            state: String(row[2] || '').trim(),
+            vent: {
+                outside: [],
+                inside: row[7] ? [{ name: String(row[7]).trim(), split: 100 }] : []
+            },
+            hydronic: {
+                outside: row[8] ? [{ name: String(row[8]).trim(), split: 100 }] : [],
+                inside: row[9] ? [{ name: String(row[9]).trim(), split: 100 }] : []
+            },
+            industrial: { outside: [], inside: [] }
+        };
+
+        // Vent Outside Sales #1 (col 3) with % (col 4)
+        if (row[3]) {
+            let pct = parseFloat(row[4]) || 100;
+            if (pct <= 1) pct = pct * 100;
+            company.vent.outside.push({ name: String(row[3]).trim(), split: pct });
+        }
+        // Vent Outside Sales #2 (col 5) with % (col 6)
+        if (row[5]) {
+            let pct = parseFloat(row[6]) || 0;
+            if (pct <= 1) pct = pct * 100;
+            if (pct > 0) company.vent.outside.push({ name: String(row[5]).trim(), split: pct });
+        }
+
+        companies.push(company);
+    }
+    return companies;
+}
+
+function updateDBFromExcel(type) {
+    const data = excelData[type];
+    if (!data || data.length === 0) return;
+
+    const productLine = currentProductLine;
+    const converted = data.map(company => ({
+        id: company.id,
+        name: company.name,
+        outside: company[productLine] ? company[productLine].outside : [],
+        inside: company[productLine] ? company[productLine].inside : []
+    }));
+
+    if (type === 'engineers') {
+        DB.engineers = converted;
+    } else if (type === 'contractors') {
+        DB.contractors = converted;
+    } else if (type === 'owners') {
+        // Keep "None / Direct" as first option
+        DB.owners = [{ id: 'o0', name: 'None / Direct', outside: [], inside: [] }, ...converted];
+    }
+}
+
+function refreshDropdowns() {
+    // Clear and repopulate dropdowns
+    const selOwner = document.getElementById('sel-owner');
+    const selEng = document.getElementById('sel-eng');
+    const selCont = document.getElementById('sel-cont');
+
+    // Save current selections
+    const currentOwner = selOwner.value;
+    const currentEng = selEng.value;
+    const currentCont = selCont.value;
+
+    // Clear options
+    selOwner.innerHTML = '';
+    selEng.innerHTML = '';
+    selCont.innerHTML = '';
+
+    // Repopulate
+    DB.owners.forEach((item, index) => {
+        let opt = document.createElement('option');
+        opt.value = index;
+        opt.text = item.name;
+        selOwner.add(opt);
+    });
+
+    DB.engineers.forEach((item, index) => {
+        let opt = document.createElement('option');
+        opt.value = index;
+        opt.text = item.name;
+        selEng.add(opt);
+    });
+
+    DB.contractors.forEach((item, index) => {
+        let opt = document.createElement('option');
+        opt.value = index;
+        opt.text = item.name;
+        selCont.add(opt);
+    });
+
+    // Restore selections if possible, otherwise default to first
+    selOwner.value = currentOwner < DB.owners.length ? currentOwner : 0;
+    selEng.value = currentEng < DB.engineers.length ? currentEng : 0;
+    selCont.value = currentCont < DB.contractors.length ? currentCont : 0;
+
+    // Reload company data
+    loadCompany('owner');
+    loadCompany('engineer');
+    loadCompany('contractor');
+}
+
+
     // Current selected company reps (inside/outside for each team)
     let currentSplits = {
         ownerOutside: [],
@@ -524,7 +1284,7 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         specialistInside: []
     };
 
-    const PRESETS = { 65: "Flat Spec", 55: "Strong Spec", 45: "Basis of Design", 35: "Approved Equal", 17: "Out of Town" };
+    const PRESETS = { 0: "None - Contractor Only", 65: "Flat Spec", 55: "Strong Spec", 45: "Basis of Design", 35: "Approved Equal", 17: "Out of Town" };
 
     // --- INIT ---
     function init() {
@@ -663,17 +1423,41 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
             p = parseInt(p);
             if (Math.abs(val - p) <= 2) {
                 snapped = p;
-                label = `${PRESETS[p]} (${p}%)`;
+                label = snapped === 0 ? PRESETS[p] : `${PRESETS[p]} (${p}%)`;
             }
         }
         document.getElementById('disp-eng-level').innerText = label;
         if(snapped !== val) document.getElementById('engSlider').value = snapped;
+        
+        // Sync checkbox with slider position
+        const checkbox = document.getElementById('directSale');
+        if (snapped === 0 && !checkbox.checked) {
+            checkbox.checked = true;
+        } else if (snapped !== 0 && checkbox.checked) {
+            checkbox.checked = false;
+        }
+        
         updateAll();
     }
 
     function setEngLevel(val) {
         document.getElementById('engSlider').value = val;
         handleEngSlide(val);
+    }
+    
+    function toggleDirectSale() {
+        const checkbox = document.getElementById('directSale');
+        const slider = document.getElementById('engSlider');
+        if (checkbox.checked) {
+            // Move slider to 0 (None)
+            slider.value = 0;
+            document.getElementById('disp-eng-level').innerText = PRESETS[0];
+        } else {
+            // Move slider to default (Equal = 35)
+            slider.value = 35;
+            document.getElementById('disp-eng-level').innerText = PRESETS[35] + ' (35%)';
+        }
+        updateAll();
     }
 
     function toggleOwner() {
@@ -723,12 +1507,11 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
         specControls.style.opacity = useSpec ? "1" : "0.5";
         specControls.style.pointerEvents = useSpec ? "auto" : "none";
 
-        // UI State - Engineering controls (disabled for Contractor Only OR Eng Directed)
-        const engDisabled = isDirect || isEngDirected;
-        document.getElementById('eng-group').style.opacity = engDisabled ? '0.3' : '1';
-        document.getElementById('engSlider').disabled = engDisabled;
+        // UI State - Engineering controls (only disabled for Eng Directed, not Contractor Only since slider syncs with checkbox)
+        document.getElementById('eng-group').style.opacity = isEngDirected ? '0.3' : '1';
+        document.getElementById('engSlider').disabled = isEngDirected;
 
-        // Mutual exclusivity for checkboxes
+        // Mutual exclusivity - Eng Directed disables Contractor Only checkbox
         document.getElementById('directSale').disabled = isEngDirected;
         document.getElementById('engDirected').disabled = isDirect;
 
