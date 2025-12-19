@@ -446,11 +446,17 @@
                         <label style="font-size:0.8em; margin-bottom:3px;">Owner Company</label>
                         <select id="sel-owner" onchange="loadCompany('owner')" style="width:100%; padding:6px; font-size:0.85em;"></select>
                     </div>
-                    <div class="slider-header">
-                        <span class="sub-label">Owner Influence</span>
-                        <span id="disp-owner" style="font-weight:bold; color:var(--owner-color);">10%</span>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; padding:6px; background:rgba(155,89,182,0.1); border-radius:4px;">
+                        <input type="checkbox" id="ownerDirect" onchange="toggleOwnerDirect()">
+                        <label for="ownerDirect" style="margin:0; font-size:0.8em; font-weight:normal;">Owner Purchasing Direct</label>
                     </div>
-                    <input type="range" id="ownerPct" min="0" max="50" value="0" oninput="updateAll()">
+                    <div id="owner-slider-controls">
+                        <div class="slider-header">
+                            <span class="sub-label">Owner Influence</span>
+                            <span id="disp-owner" style="font-weight:bold; color:var(--owner-color);">10%</span>
+                        </div>
+                        <input type="range" id="ownerPct" min="0" max="50" value="0" oninput="updateAll()">
+                    </div>
                 </div>
             </div>
 
@@ -647,11 +653,13 @@ cont_outside_net = cont_gross - cont_inside_rate</pre>
             { id: 'o3', name: 'City Schools', outside: [{name: 'Lee F.', split: 100}], inside: [{name: 'Wyatt K.', split: 100}] }
         ],
         engineers: [
+            { id: 'e0', name: 'None', outside: [], inside: [] },
             { id: 'e1', name: 'CMTA', outside: [{name: 'Ben E.', split: 50}, {name: 'Jeff F.', split: 50}], inside: [{name: 'Evan J.', split: 100}] },
             { id: 'e2', name: 'MBN Design', outside: [{name: 'Ben E.', split: 50}, {name: 'Lee F.', split: 50}], inside: [{name: 'Jacob E.', split: 100}] },
             { id: 'e3', name: 'KFI Engineers', outside: [{name: 'Ben E.', split: 100}], inside: [{name: 'John P.', split: 100}] }
         ],
         contractors: [
+            { id: 'c0', name: 'None', outside: [], inside: [] },
             { id: 'c1', name: 'UHL Company', outside: [{name: 'Lee F.', split: 50}, {name: 'Charlie V.', split: 50}], inside: [{name: 'Evan J.', split: 100}] },
             { id: 'c2', name: 'Harris Mechanical', outside: [{name: 'Greg N.', split: 70}, {name: 'Gary K.', split: 30}], inside: [{name: 'Jacob E.', split: 100}] },
             { id: 'c3', name: 'Yale Mechanical', outside: [{name: 'Dan M.', split: 100}], inside: [{name: 'Wyatt K.', split: 100}] }
@@ -1536,6 +1544,24 @@ function refreshDropdowns() {
         } else {
             ownerControls.style.display = 'none';
             ownerSlider.value = 0;
+            // Also uncheck Owner Direct when owner is disabled
+            document.getElementById('ownerDirect').checked = false;
+        }
+        updateAll();
+    }
+
+    function toggleOwnerDirect() {
+        const isOwnerDirect = document.getElementById('ownerDirect').checked;
+        const sliderControls = document.getElementById('owner-slider-controls');
+
+        if (isOwnerDirect) {
+            // Disable and gray out the slider
+            sliderControls.style.opacity = '0.3';
+            sliderControls.style.pointerEvents = 'none';
+        } else {
+            // Re-enable the slider
+            sliderControls.style.opacity = '1';
+            sliderControls.style.pointerEvents = 'auto';
         }
         updateAll();
     }
@@ -1560,43 +1586,126 @@ function refreshDropdowns() {
     function updateAll() {
         // --- INPUTS ---
         const useOwner = document.getElementById('useOwner').checked;
-        const ownerPct = useOwner ? parseInt(document.getElementById('ownerPct').value) : 0;
+        const isOwnerDirect = document.getElementById('ownerDirect').checked && useOwner;
+        const ownerPct = (useOwner && !isOwnerDirect) ? parseInt(document.getElementById('ownerPct').value) : 0;
         const useSpec = document.getElementById('useSpecialist').checked;
         const specPct = useSpec ? parseInt(document.getElementById('specPct').value) : 0;
         const engLevel = parseInt(document.getElementById('engSlider').value) / 100;
         const isDirect = document.getElementById('directSale').checked;
         const isEngDirected = document.getElementById('engDirected').checked;
 
+        // Check if Engineer and Contractor are "None" (index 0)
+        const engIsNone = document.getElementById('sel-eng').value === '0';
+        const contIsNone = document.getElementById('sel-cont').value === '0';
+
         // UI State - Owner controls
-        document.getElementById('disp-owner').innerText = ownerPct + "%";
+        document.getElementById('disp-owner').innerText = isOwnerDirect ? "Direct" : ownerPct + "%";
+
+        // UI State - Owner slider (disabled when Owner Direct is checked)
+        const ownerSliderControls = document.getElementById('owner-slider-controls');
+        if (isOwnerDirect) {
+            ownerSliderControls.style.opacity = '0.3';
+            ownerSliderControls.style.pointerEvents = 'none';
+        } else {
+            ownerSliderControls.style.opacity = '1';
+            ownerSliderControls.style.pointerEvents = 'auto';
+        }
 
         // UI State - Specialist controls
         document.getElementById('disp-spec').innerText = specPct + "%";
 
-        // UI State - Engineering controls (only disabled for Eng Directed, not Contractor Only since slider syncs with checkbox)
-        document.getElementById('eng-group').style.opacity = isEngDirected ? '0.3' : '1';
-        document.getElementById('engSlider').disabled = isEngDirected;
+        // UI State - Engineering controls (disabled for Eng Directed, or Owner Direct with no Engineer)
+        const engDisabled = isEngDirected || (isOwnerDirect && engIsNone);
+        document.getElementById('eng-group').style.opacity = engDisabled ? '0.3' : '1';
+        document.getElementById('engSlider').disabled = engDisabled;
 
-        // Mutual exclusivity - Eng Directed disables Contractor Only checkbox
-        document.getElementById('directSale').disabled = isEngDirected;
-        document.getElementById('engDirected').disabled = isDirect;
+        // Mutual exclusivity - disable Contractor Only when Owner Direct is active
+        document.getElementById('directSale').disabled = isEngDirected || isOwnerDirect;
+        document.getElementById('engDirected').disabled = isDirect || isOwnerDirect;
 
         // --- CALCULATION LOGIC ---
         let IN_ENG_BASE = 7.0;
         let IN_CONT_BASE = 5.0;
 
-        // Visual "Slivers" for the Specialist Inside
+        // Results
         let specInLeft = 0;
         let specInRight = 0;
         let finalInEng = 0;
         let finalInCont = 0;
+        let finalInOwner = 0;  // Owner Inside for Owner Direct scenarios
         let engOutsideNet = 0;
         let contOutsideNet = 0;
+        let ownerOutsideNet = 0;  // Owner Outside for Owner Direct scenarios
         let engGross = 0;
         let contGross = 0;
 
-        // Engineer Directed Owner Sale: 78% Outside + 10% Inside to Eng, 12% Inside to Contractor
-        if (isEngDirected) {
+        // Calculate remaining pool after specialist takes their cut
+        let remainingPool = 100 - specPct;
+
+        // === OWNER PURCHASING DIRECT SCENARIOS ===
+        if (isOwnerDirect) {
+            if (engIsNone && contIsNone) {
+                // Scenario 1: Owner Direct + No Engineer + No Contractor
+                // Owner gets everything: 88% Outside, 12% Inside
+                ownerOutsideNet = remainingPool - 12;
+                finalInOwner = 12;
+                if (useSpec) {
+                    specInLeft = 2;
+                    specInRight = 2;
+                    finalInOwner = 12 - 4;  // 8% to Owner Inside after Spec takes 4%
+                }
+            } else if (!engIsNone && contIsNone) {
+                // Scenario 2: Owner Direct + Engineer + No Contractor
+                // Engineering Influence splits between Engineer and Owner
+                engGross = remainingPool * engLevel;
+                let ownerGross = remainingPool - engGross;
+                finalInEng = 7;
+                finalInOwner = 5;
+                if (useSpec) {
+                    specInLeft = 2;
+                    specInRight = 2;
+                    finalInEng = 5;
+                    finalInOwner = 3;
+                }
+                engOutsideNet = engGross - finalInEng - specInLeft;
+                ownerOutsideNet = ownerGross - finalInOwner - specInRight;
+            } else if (engIsNone && !contIsNone) {
+                // Scenario 3: Owner Direct + No Engineer + Contractor
+                // Contractor: 10% Outside, 2% Inside; Owner: 78% Outside, 10% Inside
+                contOutsideNet = 10;
+                finalInCont = 2;
+                finalInOwner = 10;
+                ownerOutsideNet = remainingPool - contOutsideNet - finalInCont - finalInOwner;
+                if (useSpec) {
+                    specInLeft = 2;
+                    specInRight = 2;
+                    finalInOwner = 10 - 2;
+                    finalInCont = 2 - 2;
+                }
+            } else {
+                // Scenario 4: Owner Direct + Engineer + Contractor
+                // Contractor: 10% Outside, 2% Inside
+                // Engineering Influence splits remainder between Engineer and Owner
+                contOutsideNet = 10;
+                finalInCont = 2;
+                let poolAfterCont = remainingPool - contOutsideNet - finalInCont;
+                engGross = poolAfterCont * engLevel;
+                let ownerGross = poolAfterCont - engGross;
+                finalInEng = 7;
+                finalInOwner = 3;
+                if (useSpec) {
+                    specInLeft = 2;
+                    specInRight = 2;
+                    finalInEng = 5;
+                    finalInOwner = 1;
+                }
+                engOutsideNet = engGross - finalInEng - specInLeft;
+                ownerOutsideNet = ownerGross - finalInOwner - specInRight;
+            }
+        }
+        // === STANDARD SCENARIOS (existing logic) ===
+        else if (isEngDirected) {
+            // Engineer Directed Owner Sale: 78% Outside + 10% Inside to Eng, 12% Inside to Contractor
             finalInEng = 10.0;
             finalInCont = 12.0;
             engOutsideNet = 78.0 - ownerPct - specPct;
@@ -1616,8 +1725,26 @@ function refreshDropdowns() {
                 finalInEng = IN_ENG_BASE - 2.0; // 5%
                 finalInCont = IN_CONT_BASE - 2.0; // 3%
             }
+
+            // Waterfall
+            remainingPool = 100 - ownerPct - specPct;
+            if (isDirect) {
+                engGross = 0;
+                contGross = remainingPool;
+            } else {
+                engGross = remainingPool * engLevel;
+                contGross = remainingPool - engGross;
+            }
+
+            // Net calculations
+            if (isDirect) {
+                contOutsideNet = contGross - 12;
+            } else {
+                engOutsideNet = engGross - (finalInEng + specInLeft);
+                contOutsideNet = contGross - (finalInCont + specInRight);
+            }
         } else {
-            // Standard
+            // Standard (no specialist)
             specInLeft = 0;
             specInRight = 0;
             if (isDirect) {
@@ -1627,12 +1754,9 @@ function refreshDropdowns() {
                 finalInEng = 7.0;
                 finalInCont = 5.0;
             }
-        }
 
-        // Waterfall (skip if Eng Directed since we set values above)
-        if (!isEngDirected) {
-            let remainingPool = 100 - ownerPct - specPct;
-
+            // Waterfall
+            remainingPool = 100 - ownerPct - specPct;
             if (isDirect) {
                 engGross = 0;
                 contGross = remainingPool;
@@ -1640,13 +1764,24 @@ function refreshDropdowns() {
                 engGross = remainingPool * engLevel;
                 contGross = remainingPool - engGross;
             }
+
+            // Net calculations
+            if (isDirect) {
+                contOutsideNet = contGross - 12;
+            } else {
+                engOutsideNet = engGross - finalInEng;
+                contOutsideNet = contGross - finalInCont;
+            }
         }
 
         // Validation
         const errorBox = document.getElementById('validation-msg');
         let isValid = true;
 
-        if (isEngDirected) {
+        if (isOwnerDirect) {
+            // Owner Direct validation - check that we have positive values
+            if (ownerOutsideNet < 0 || engOutsideNet < 0 || contOutsideNet < 0) isValid = false;
+        } else if (isEngDirected) {
             // Eng Directed: valid as long as owner+spec don't exceed 78%
             if (ownerPct + specPct > 78) isValid = false;
         } else {
@@ -1662,44 +1797,32 @@ function refreshDropdowns() {
         }
         errorBox.style.display = isValid ? 'none' : 'block';
 
-        // Net Outside Calculations (skip if Eng Directed - already set above)
-        if (!isEngDirected) {
-            if (isDirect) {
-                contOutsideNet = contGross - 12; // 12 covers (Spec 4 + Cont 8)
-            } else {
-                engOutsideNet = engGross - (finalInEng + specInLeft); // Gross - 7%
-                contOutsideNet = contGross - (finalInCont + specInRight); // Gross - 5%
-            }
-        }
-
         // --- RENDER BARS (8 Segments) ---
-        // 1. Spec In Left
-        renderBar("bar-spec-in-left", specInLeft, "Sp.In", true); // Pass true to force render label if small?
-        
-        // 2. Eng In Left
+        renderBar("bar-spec-in-left", specInLeft, "Sp.In");
         renderBar("bar-in-eng", finalInEng, "In.Eng");
-        
-        // 3. Middle Bars
         renderBar("bar-eng", engOutsideNet, "Eng");
         renderBar("bar-spec", specPct, "Spec");
-        renderBar("bar-owner", ownerPct, "Own");
-        renderBar("bar-cont", contOutsideNet, "C");
 
-        // 4. Contractor Inside Right
-        renderBar("bar-in-cont", finalInCont, "In.C");
-        
-        // 5. Spec In Right
+        // For Owner Direct, show owner in the "owner" position with their outside amount
+        if (isOwnerDirect) {
+            renderBar("bar-owner", ownerOutsideNet, "Own");
+        } else {
+            renderBar("bar-owner", ownerPct, "Own");
+        }
+
+        renderBar("bar-cont", contOutsideNet, "C");
+        renderBar("bar-in-cont", finalInCont + finalInOwner, isOwnerDirect ? "In.O/C" : "In.C");
         renderBar("bar-spec-in-right", specInRight, "Sp.In");
 
         // --- PIE (Team Totals: Outside + Inside) ---
-        let totalOwner = ownerPct;
-        let totalSpec = specPct + specInLeft + specInRight;  // Spec outside + Spec inside (both sides)
-        let totalEng = engOutsideNet + finalInEng;  // Eng outside + Eng inside
-        let totalCont = contOutsideNet + finalInCont;  // Cont outside + Cont inside
-        updatePie(totalOwner, totalSpec, totalEng, totalCont, isDirect && !isEngDirected);
+        let totalOwner = isOwnerDirect ? (ownerOutsideNet + finalInOwner) : ownerPct;
+        let totalSpec = specPct + specInLeft + specInRight;
+        let totalEng = engOutsideNet + finalInEng;
+        let totalCont = contOutsideNet + finalInCont;
+        updatePie(totalOwner, totalSpec, totalEng, totalCont, isDirect && !isEngDirected && !isOwnerDirect);
 
         // --- TABLE ---
-        renderTable(ownerPct, specPct, engOutsideNet, contOutsideNet, finalInEng, finalInCont, specInLeft, specInRight, isDirect, isEngDirected);
+        renderTable(ownerPct, specPct, engOutsideNet, contOutsideNet, finalInEng, finalInCont, specInLeft, specInRight, isDirect, isEngDirected, isOwnerDirect, ownerOutsideNet, finalInOwner, engIsNone, contIsNone);
     }
 
     function renderBar(id, val, label) {
@@ -1755,13 +1878,36 @@ function refreshDropdowns() {
             </div>`;
     }
 
-    function renderTable(owner, spec, engOut, contOut, inEng, inCont, inSpecL, inSpecR, isDirect, isEngDirected) {
+    function renderTable(owner, spec, engOut, contOut, inEng, inCont, inSpecL, inSpecR, isDirect, isEngDirected, isOwnerDirect, ownerOutsideNet, finalInOwner, engIsNone, contIsNone) {
         // Generate commission rows from calculated values using selected company reps
         commissionRows = [];
 
         // Owner - use selected company reps (separate inside/outside)
-        if (owner > 0) {
-            // Outside Sales
+        // For Owner Direct scenarios, use ownerOutsideNet and finalInOwner
+        if (isOwnerDirect) {
+            // Owner Direct: show ownerOutsideNet and finalInOwner
+            if (ownerOutsideNet > 0) {
+                if (currentSplits.ownerOutside.length > 0) {
+                    currentSplits.ownerOutside.forEach(rep => {
+                        let share = (rep.split / 100) * ownerOutsideNet;
+                        commissionRows.push({ team: 'Owner', person: rep.name, type: 'Outside Sales', split: share });
+                    });
+                } else {
+                    commissionRows.push({ team: 'Owner', person: 'Owner Rep', type: 'Outside Sales', split: ownerOutsideNet });
+                }
+            }
+            if (finalInOwner > 0) {
+                if (currentSplits.ownerInside.length > 0) {
+                    currentSplits.ownerInside.forEach(rep => {
+                        let share = (rep.split / 100) * finalInOwner;
+                        commissionRows.push({ team: 'Owner', person: rep.name, type: 'Inside Sales', split: share });
+                    });
+                } else {
+                    commissionRows.push({ team: 'Owner', person: 'Owner Inside Rep', type: 'Inside Sales', split: finalInOwner });
+                }
+            }
+        } else if (owner > 0) {
+            // Standard Owner: just show owner slider percentage as outside sales
             if (currentSplits.ownerOutside.length > 0) {
                 currentSplits.ownerOutside.forEach(rep => {
                     let share = (rep.split / 100) * owner;
@@ -1798,7 +1944,9 @@ function refreshDropdowns() {
         }
 
         // Engineering Team - use selected company reps (separate inside/outside)
-        if ((!isDirect || isEngDirected) && (engOut + inEng > 0)) {
+        // Skip if Engineer is "None" or if it's a direct sale (unless eng directed)
+        const showEng = !engIsNone && (!isDirect || isEngDirected) && (engOut + inEng > 0);
+        if (showEng) {
             // Inside Sales
             if (inEng > 0) {
                 if (currentSplits.engineerInside.length > 0) {
@@ -1824,7 +1972,9 @@ function refreshDropdowns() {
         }
 
         // Contractor Team - use selected company reps (separate inside/outside)
-        if (inCont > 0 || contOut > 0) {
+        // Skip if Contractor is "None"
+        const showCont = !contIsNone && (inCont > 0 || contOut > 0);
+        if (showCont) {
             // Inside Sales
             if (inCont > 0) {
                 if (currentSplits.contractorInside.length > 0) {
