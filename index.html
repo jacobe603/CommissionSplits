@@ -669,86 +669,117 @@
             <button class="modal-close" onclick="closeHelp()">&times;</button>
         </div>
         <div class="modal-body">
-            <h3>1. Executive Summary</h3>
-            <p>This feature implements a <strong>"Waterfall"</strong> calculation engine to distribute profit on HVAC sales projects. The logic dictates how a project's commission pool is divided among four potential parties: the <strong>Owner</strong>, the <strong>Specialist</strong>, the <strong>Engineering Team</strong>, and the <strong>Contractor Team</strong>.</p>
+            <h3>1. Overview</h3>
+            <p>The Sales Project Commission Engine is a <strong>"Waterfall"</strong> calculation tool for distributing profit on HVAC sales projects. It divides commission among up to four parties: <strong>Owner</strong>, <strong>Specialist</strong>, <strong>Engineering Team</strong>, and <strong>Contractor Team</strong>.</p>
 
-            <h4>Core Logic ("The Waterfall")</h4>
-            <p>The calculation follows a strict order of operations:</p>
+            <h4>Application Tabs</h4>
+            <table class="info-table">
+                <tr><th>Tab</th><th>Purpose</th></tr>
+                <tr><td><strong>Load Data</strong></td><td>Import company/rep data from Excel files. Select a folder once and reconnect with one click on future visits.</td></tr>
+                <tr><td><strong>Calculator</strong></td><td>Configure project scenarios and calculate commission splits. See real-time visualizations.</td></tr>
+                <tr><td><strong>Commission Matrix</strong></td><td>Searchable reference table of all companies and their assigned sales reps by product line.</td></tr>
+                <tr><td><strong>Specialist Matrix</strong></td><td>View specialist types with default commission rates and assigned reps.</td></tr>
+            </table>
+
+            <h3>2. Loading Data</h3>
+            <p>The app can load company and rep assignments from Excel files:</p>
             <ul>
-                <li><strong>Top-Off Deductions:</strong> The Owner and Specialist (if involved) take their percentage cuts from the total project profit first.</li>
-                <li><strong>The Split:</strong> The remaining profit is divided between the Engineering Team and the Contractor Team based on a user-defined "Influence Level" (e.g., Flat Spec vs. Open Spec).</li>
-                <li><strong>Inside Sales Costs:</strong> From those two team buckets, we deduct fixed percentages to pay the Inside Sales/Project Management staff.</li>
-                <li><strong>Net Commission:</strong> The remaining amount in the buckets is distributed to the Outside Sales Reps based on a pre-defined matrix.</li>
+                <li><strong>Quick Load:</strong> Select a folder containing your Excel files. The app remembers the folder for future visits.</li>
+                <li><strong>Reconnect:</strong> On return visits, click "Reconnect" to reload your data (permission required).</li>
+                <li><strong>Status Indicator:</strong> The Calculator page shows a green dot when connected to real data, red when using defaults.</li>
+                <li><strong>File Matching:</strong> Files are matched by name - files containing "Engineer", "Contractor", or "Owner" are loaded automatically.</li>
             </ul>
-            <p><em>Note: If a Specialist is involved, they "cannibalize" a portion of the Inside Sales budget (effectively re-allocating it to the Specialist Support role).</em></p>
+            <p>Each Excel file can contain multiple product lines (Vent, Hydronic, Industrial) with different rep assignments per company.</p>
 
-            <h3>2. Technical Definitions</h3>
-            <h4>Constants</h4>
-            <p>These values represent business rules:</p>
+            <h3>3. Calculator - Core Logic</h3>
+            <h4>The Waterfall Calculation</h4>
+            <p>Commission is calculated in this order:</p>
+            <ol>
+                <li><strong>Specialist Cut:</strong> If enabled, the Specialist takes their percentage off the top (default varies by type: 10-20%).</li>
+                <li><strong>Owner Cut:</strong> If enabled, the Owner takes their percentage (0-50% slider).</li>
+                <li><strong>Team Split:</strong> Remaining pool is divided between Engineering and Contractor based on Engineering Influence.</li>
+                <li><strong>Inside Sales:</strong> Fixed percentages are deducted for Inside Sales (7% Eng, 5% Cont standard).</li>
+                <li><strong>Outside Sales:</strong> The remainder goes to Outside Sales reps per the commission matrix.</li>
+            </ol>
+
+            <h4>Engineering Influence Presets</h4>
+            <table class="info-table">
+                <tr><th>Preset</th><th>Eng %</th><th>Description</th></tr>
+                <tr><td>Flat Spec</td><td>65%</td><td>Engineer specified exact product, maximum influence</td></tr>
+                <tr><td>Strong Spec</td><td>55%</td><td>Strong engineering involvement</td></tr>
+                <tr><td>Basis of Design</td><td>45%</td><td>Engineer set basis, contractor may substitute</td></tr>
+                <tr><td>Approved Equal</td><td>35%</td><td>Open specification with approved equals (default)</td></tr>
+                <tr><td>Out of Town</td><td>17%</td><td>Minimal engineering relationship</td></tr>
+            </table>
+
+            <h4>Special Modes</h4>
+            <table class="info-table">
+                <tr><th>Mode</th><th>Description</th></tr>
+                <tr><td><strong>Contractor Only (Design/Build)</strong></td><td>No engineering team. Contractor gets 100% of the split with 12% inside sales.</td></tr>
+                <tr><td><strong>Owner Purchasing Direct</strong></td><td>Owner buys directly. See scenarios below.</td></tr>
+                <tr><td><strong>Add Specialist</strong></td><td>Adds specialist cut and "cannibalizes" 2% from each team's inside sales budget.</td></tr>
+            </table>
+
+            <h3>4. Owner Purchasing Direct</h3>
+            <p>When "Owner Purchasing Direct" is checked, the Owner becomes the primary buyer. Four scenarios apply:</p>
+
+            <h4>Scenario 1: Owner Only (No Engineer, No Contractor)</h4>
+            <p>Owner gets everything: <strong>88% Outside + 12% Inside</strong></p>
+
+            <h4>Scenario 2: Owner + Engineer (No Contractor)</h4>
+            <p>Engineering Influence splits the pool between Engineer and Owner. Inside: 7% Eng, 5% Owner.</p>
+
+            <h4>Scenario 3: Owner + Contractor (No Engineer)</h4>
+            <p>Contractor gets <strong>10% Outside + 2% Inside</strong>. Owner gets <strong>78% Outside + 10% Inside</strong>.</p>
+
+            <h4>Scenario 4: Owner + Engineer + Contractor</h4>
+            <p>Contractor gets fixed 10%+2%. Remaining pool splits between Engineer and Owner per Engineering Influence.</p>
+
+            <p><em>Note: In all scenarios, Specialist (if enabled) takes their cut first, and cannibalizes inside sales as usual.</em></p>
+
+            <h3>5. Specialist Involvement</h3>
+            <p>When a Specialist is added:</p>
+            <ul>
+                <li>They take their Outside % off the top (configurable slider, defaults to type-specific amount)</li>
+                <li>They "cannibalize" 2% from Engineering Inside and 2% from Contractor Inside</li>
+                <li>This 4% becomes Specialist Inside Sales</li>
+                <li>Reduces Eng Inside from 7% to 5%, Cont Inside from 5% to 3%</li>
+            </ul>
+
+            <h4>Specialist Types & Defaults</h4>
+            <table class="info-table">
+                <tr><th>Type</th><th>Default %</th></tr>
+                <tr><td>Dadanco, Nortek AHU, HT Material, Williams IPS, Flow Environmental, Coop Purchasing</td><td>10%</td></tr>
+                <tr><td>VRV, AJ Surgery Suite</td><td>15%</td></tr>
+                <tr><td>Geothermal</td><td>20%</td></tr>
+            </table>
+
+            <h3>6. Commission Matrix</h3>
+            <p>The Commission Matrix tab provides a searchable reference of all company/rep assignments:</p>
+            <ul>
+                <li><strong>Search:</strong> Find companies by name or search for a rep to see all their accounts</li>
+                <li><strong>Product Line:</strong> Switch between Vent, Hydronic, and Industrial to see different team assignments</li>
+                <li><strong>Type Filter:</strong> Show only Owners, Engineers, or Contractors</li>
+                <li><strong>Unified View:</strong> All company types in one alphabetical list with type badges</li>
+            </ul>
+            <p><em>Note: This view is for reference only and does not affect Calculator selections.</em></p>
+
+            <h3>7. Visual Elements</h3>
+            <ul>
+                <li><strong>Horizontal Bar:</strong> Shows the commission split visually. Left side = Engineering, Right side = Contractor.</li>
+                <li><strong>Pie Chart:</strong> Shows total team percentages including inside sales.</li>
+                <li><strong>Commission Table:</strong> Detailed breakdown by person with editable splits.</li>
+                <li><strong>Validation Errors:</strong> Red alert appears if allocations exceed available pool.</li>
+            </ul>
+
+            <h3>8. Technical Constants</h3>
             <table class="info-table">
                 <tr><th>Constant</th><th>Value</th><th>Description</th></tr>
-                <tr><td><code>INSIDE_ENG_BASE</code></td><td>7.0%</td><td>Base Inside Sales cost for the Engineer Team</td></tr>
-                <tr><td><code>INSIDE_CONT_BASE</code></td><td>5.0%</td><td>Base Inside Sales cost for the Contractor Team</td></tr>
-                <tr><td><code>SPEC_INSIDE_TAX</code></td><td>2.0%</td><td>The % the Specialist "taxes" from each team's Inside Sales budget</td></tr>
-                <tr><td><code>TOTAL_INSIDE_CAP</code></td><td>12.0%</td><td>Hard cap for total Inside Sales commission on any project</td></tr>
+                <tr><td><code>INSIDE_ENG_BASE</code></td><td>7.0%</td><td>Base Inside Sales for Engineering Team</td></tr>
+                <tr><td><code>INSIDE_CONT_BASE</code></td><td>5.0%</td><td>Base Inside Sales for Contractor Team</td></tr>
+                <tr><td><code>SPEC_INSIDE_TAX</code></td><td>2.0%</td><td>Amount Specialist takes from each team's Inside budget</td></tr>
+                <tr><td><code>TOTAL_INSIDE_CAP</code></td><td>12.0%</td><td>Maximum total Inside Sales on any project</td></tr>
             </table>
-
-            <h4>Input Variables</h4>
-            <table class="info-table">
-                <tr><th>Variable</th><th>Type</th><th>Description</th></tr>
-                <tr><td>Owner Influence</td><td>0-50%</td><td>Percentage taken "off the top" for the Owner</td></tr>
-                <tr><td>Specialist Toggle</td><td>On/Off</td><td>Indicates if a Specialist is involved</td></tr>
-                <tr><td>Specialist Outside %</td><td>10-50%</td><td>Required if Specialist is active</td></tr>
-                <tr><td>Engineering Influence</td><td>17-65%</td><td>e.g., 0.65 for Flat Spec, 0.17 for Out of Town</td></tr>
-                <tr><td>Direct Sale</td><td>On/Off</td><td>True if no Engineer is involved</td></tr>
-            </table>
-
-            <h3>3. Algorithm Logic</h3>
-            <p>The calculation must be performed in this specific order:</p>
-
-            <h4>Step 1: Determine Inside Sales Rates</h4>
-            <p>If a specialist is active, the standard inside sales rates are reduced by 2%, and that amount is re-allocated to the Specialist Support role.</p>
-<pre>IF specialist_active:
-    eng_inside_rate = 7% - 2% = 5%
-    cont_inside_rate = 5% - 2% = 3%
-    spec_inside_rate = 2% + 2% = 4%
-ELSE:
-    eng_inside_rate = 7%
-    cont_inside_rate = 5%</pre>
-
-            <h4>Step 2: Calculate Remaining Pool</h4>
-            <p>Deduct the Owner and Specialist Outside percentages from the total (100%).</p>
-<pre>remaining_pool = 100% - owner% - specialist%</pre>
-
-            <h4>Step 3: Divide the Pool</h4>
-<pre>IF direct_sale:
-    eng_gross = 0%
-    cont_gross = remaining_pool
-ELSE:
-    eng_gross = remaining_pool × influence_factor
-    cont_gross = remaining_pool - eng_gross</pre>
-
-            <h4>Step 4: Validation ("Squeeze" Check)</h4>
-            <p>Verify that the gross pools are large enough to cover the mandatory Inside Costs. If not, an error is displayed.</p>
-
-            <h4>Step 5: Net Commission</h4>
-<pre>eng_outside_net = eng_gross - eng_inside_rate
-cont_outside_net = cont_gross - cont_inside_rate</pre>
-
-            <h3>4. Visual Representation</h3>
-            <ul>
-                <li><strong>Bar Chart:</strong> Shows the split visually from Engineering side (left) to Contractor side (right)</li>
-                <li><strong>Inside Sales Bars:</strong> When a Specialist is active, the UI shows 2% Pink (Specialist) portions on each end</li>
-                <li><strong>Validation Error:</strong> A red alert box appears if allocations are too high, preventing invalid splits</li>
-            </ul>
-
-            <h3>5. Commission Matrix</h3>
-            <p>The matrix allows you to:</p>
-            <ul>
-                <li>Select companies for Owner, Engineer, and Contractor teams</li>
-                <li>Edit individual rep split percentages within each team</li>
-                <li>See the final dollar split breakdown in the table</li>
-            </ul>
         </div>
     </div>
 </div>
