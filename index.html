@@ -260,6 +260,33 @@
             padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.3);
         }
         .manual-section-header span { font-size: 0.85em; opacity: 0.8; }
+
+        /* Data Connection Status */
+        .data-connection-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            background: #f8f9fa; padding: 8px 15px; border-radius: 6px; margin-bottom: 15px;
+            border: 1px solid #e9ecef;
+        }
+        .connection-status {
+            display: flex; align-items: center; gap: 8px; font-size: 0.85em;
+        }
+        .status-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+        }
+        .status-dot.connected { background: #28a745; box-shadow: 0 0 6px rgba(40, 167, 69, 0.5); }
+        .status-dot.disconnected { background: #dc3545; box-shadow: 0 0 6px rgba(220, 53, 69, 0.5); }
+        .connection-label { color: #495057; }
+        .connection-label.connected { color: #28a745; font-weight: 500; }
+        .connection-label.disconnected { color: #dc3545; }
+        .quick-reconnect-btn {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white; border: none; padding: 6px 14px; border-radius: 4px;
+            cursor: pointer; font-size: 0.8em; font-weight: 500;
+            display: flex; align-items: center; gap: 6px;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        .quick-reconnect-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .quick-reconnect-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     </style>
 </head>
 <body>
@@ -359,6 +386,20 @@
 
     <!-- Calculator Tab -->
     <div id="tab-calculator" class="tab-content active">
+
+        <!-- Data Connection Status Bar -->
+        <div class="data-connection-bar" id="calc-connection-bar">
+            <div class="connection-status">
+                <span class="status-dot disconnected" id="calc-status-dot"></span>
+                <span class="connection-label disconnected" id="calc-status-label">Using default data</span>
+            </div>
+            <button class="quick-reconnect-btn" id="calc-reconnect-btn" onclick="quickReconnect()" style="display:none;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
+                </svg>
+                Reconnect Data
+            </button>
+        </div>
 
         <!-- Company Selection - First -->
         <div class="company-select-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 20px;">
@@ -874,6 +915,7 @@ async function selectDataFolder() {
         await saveFolderHandle(handle);
         await loadFilesFromFolder(handle);
         updateFolderUI(true, handle.name);
+        updateCalcConnectionStatus(true, handle.name);
     } catch (err) {
         if (err.name !== 'AbortError') {
             console.error('Error selecting folder:', err);
@@ -900,6 +942,7 @@ async function reconnectFolder() {
         storedFolderHandle = handle;
         await loadFilesFromFolder(handle);
         updateFolderUI(true, handle.name);
+        updateCalcConnectionStatus(true, handle.name);
     } catch (err) {
         console.error('Error reconnecting:', err);
         alert('Error reconnecting: ' + err.message);
@@ -911,6 +954,7 @@ async function forgetFolder() {
         await deleteFolderHandle();
         storedFolderHandle = null;
         updateFolderUI(false);
+        updateCalcConnectionStatus(false, null);
 
         // Reset status displays
         ['engineers', 'contractors', 'owners'].forEach(type => {
@@ -1040,9 +1084,76 @@ async function checkStoredFolder() {
             document.getElementById('folder-status').classList.add('visible');
             document.getElementById('folder-path-display').innerText = 'Folder: ' + handle.name + ' (click Reconnect to load)';
             document.getElementById('folder-files-display').innerText = '';
+            // Update calculator page status bar to show reconnect available
+            updateCalcConnectionStatus(false, handle.name);
         }
     } catch (err) {
         console.error('Error checking stored folder:', err);
+    }
+}
+
+// Track if we're connected to real data
+let isConnectedToRealData = false;
+
+// Update the calculator page status bar
+function updateCalcConnectionStatus(connected, folderName) {
+    const dot = document.getElementById('calc-status-dot');
+    const label = document.getElementById('calc-status-label');
+    const btn = document.getElementById('calc-reconnect-btn');
+
+    isConnectedToRealData = connected;
+
+    if (connected) {
+        dot.className = 'status-dot connected';
+        label.className = 'connection-label connected';
+        label.innerText = 'Connected to: ' + folderName;
+        btn.style.display = 'none';
+    } else {
+        dot.className = 'status-dot disconnected';
+        label.className = 'connection-label disconnected';
+        // Check if we have a stored folder we could reconnect to
+        if (storedFolderHandle) {
+            label.innerText = 'Disconnected - click to reconnect';
+            btn.style.display = 'flex';
+        } else {
+            label.innerText = 'Using default data';
+            btn.style.display = 'none';
+        }
+    }
+}
+
+// Quick reconnect from calculator page
+async function quickReconnect() {
+    const btn = document.getElementById('calc-reconnect-btn');
+    const label = document.getElementById('calc-status-label');
+
+    btn.disabled = true;
+    label.innerText = 'Reconnecting...';
+
+    try {
+        const handle = storedFolderHandle || await loadFolderHandle();
+        if (!handle) {
+            label.innerText = 'No folder stored. Go to Load Data tab.';
+            btn.disabled = false;
+            return;
+        }
+
+        // Request permission
+        const permission = await handle.requestPermission({ mode: 'read' });
+        if (permission !== 'granted') {
+            label.innerText = 'Permission denied';
+            btn.disabled = false;
+            return;
+        }
+
+        storedFolderHandle = handle;
+        await loadFilesFromFolder(handle);
+        updateFolderUI(true, handle.name);
+        updateCalcConnectionStatus(true, handle.name);
+    } catch (err) {
+        console.error('Error quick reconnecting:', err);
+        label.innerText = 'Error: ' + err.message;
+        btn.disabled = false;
     }
 }
 
@@ -1230,9 +1341,11 @@ function updateDBFromExcel(type) {
     }));
 
     if (type === 'engineers') {
-        DB.engineers = converted;
+        // Keep "None" as first option
+        DB.engineers = [{ id: 'e0', name: 'None', outside: [], inside: [] }, ...converted];
     } else if (type === 'contractors') {
-        DB.contractors = converted;
+        // Keep "None" as first option
+        DB.contractors = [{ id: 'c0', name: 'None', outside: [], inside: [] }, ...converted];
     } else if (type === 'owners') {
         // Keep "None / Direct" as first option
         DB.owners = [{ id: 'o0', name: 'None / Direct', outside: [], inside: [] }, ...converted];
