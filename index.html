@@ -1737,17 +1737,15 @@ function refreshDropdowns() {
     // --- CUSTOM ENGINEER FUNCTIONS ---
 
     // Get unique rep names from all loaded data
-    function getUniqueRepNames() {
+    // salesType: 'outside' or 'inside'
+    function getUniqueRepNames(salesType) {
         const names = new Set();
 
         // Gather from all DB arrays
         ['owners', 'engineers', 'contractors'].forEach(type => {
             DB[type].forEach(company => {
-                if (company.outside) {
-                    company.outside.forEach(rep => names.add(rep.name));
-                }
-                if (company.inside) {
-                    company.inside.forEach(rep => names.add(rep.name));
+                if (company[salesType]) {
+                    company[salesType].forEach(rep => names.add(rep.name));
                 }
             });
         });
@@ -1757,13 +1755,8 @@ function refreshDropdowns() {
             if (excelData[type]) {
                 excelData[type].forEach(company => {
                     ['vent', 'hydronic', 'industrial'].forEach(line => {
-                        if (company[line]) {
-                            if (company[line].outside) {
-                                company[line].outside.forEach(rep => names.add(rep.name));
-                            }
-                            if (company[line].inside) {
-                                company[line].inside.forEach(rep => names.add(rep.name));
-                            }
+                        if (company[line] && company[line][salesType]) {
+                            company[line][salesType].forEach(rep => names.add(rep.name));
                         }
                     });
                 });
@@ -1776,25 +1769,45 @@ function refreshDropdowns() {
 
     // Populate rep name dropdowns with unique names
     function populateRepNameDropdowns() {
-        const names = getUniqueRepNames();
-        const selects = document.querySelectorAll('.rep-name-select');
+        // Populate outside sales dropdowns
+        const outsideSelects = document.querySelectorAll('#custom-eng-outside .rep-name-select');
+        const outsideNames = getUniqueRepNames('outside');
 
-        selects.forEach(select => {
+        outsideSelects.forEach(select => {
             const currentValue = select.value;
             select.innerHTML = '<option value="">-- Select Rep --</option>';
-            names.forEach(name => {
+            outsideNames.forEach(name => {
                 const opt = document.createElement('option');
                 opt.value = name;
                 opt.textContent = name;
                 select.appendChild(opt);
             });
-            // Add "Type custom..." option
             const customOpt = document.createElement('option');
             customOpt.value = '__custom__';
             customOpt.textContent = '-- Type Custom Name --';
             select.appendChild(customOpt);
+            if (currentValue && currentValue !== '__custom__') {
+                select.value = currentValue;
+            }
+        });
 
-            // Restore previous selection if it exists
+        // Populate inside sales dropdowns
+        const insideSelects = document.querySelectorAll('#custom-eng-inside .rep-name-select');
+        const insideNames = getUniqueRepNames('inside');
+
+        insideSelects.forEach(select => {
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">-- Select Rep --</option>';
+            insideNames.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                select.appendChild(opt);
+            });
+            const customOpt = document.createElement('option');
+            customOpt.value = '__custom__';
+            customOpt.textContent = '-- Type Custom Name --';
+            select.appendChild(customOpt);
             if (currentValue && currentValue !== '__custom__') {
                 select.value = currentValue;
             }
@@ -1869,6 +1882,7 @@ function refreshDropdowns() {
 
     function addCustomRep(section) {
         const containerId = section === 'eng-outside' ? 'custom-eng-outside' : 'custom-eng-inside';
+        const salesType = section === 'eng-outside' ? 'outside' : 'inside';
         const container = document.getElementById(containerId);
         const existingRows = container.querySelectorAll('.custom-rep-row');
         const rowCount = existingRows.length;
@@ -1884,8 +1898,8 @@ function refreshDropdowns() {
             splitInput.value = idx === 0 ? equalSplit + remainder : equalSplit;
         });
 
-        // Get unique rep names for dropdown
-        const names = getUniqueRepNames();
+        // Get unique rep names for dropdown (outside or inside only)
+        const names = getUniqueRepNames(salesType);
         let optionsHtml = '<option value="">-- Select Rep --</option>';
         names.forEach(name => {
             optionsHtml += `<option value="${name}">${name}</option>`;
