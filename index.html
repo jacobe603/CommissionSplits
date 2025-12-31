@@ -373,12 +373,16 @@
             margin-bottom: 6px;
             align-items: center;
         }
-        .custom-rep-row input[type="text"] {
+        .custom-rep-row input[type="text"],
+        .custom-rep-row select.rep-name-select {
             flex: 2;
             padding: 6px 10px;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 0.85em;
+        }
+        .custom-rep-row .custom-name-input {
+            flex: 2;
         }
         .custom-rep-row input[type="number"] {
             width: 70px;
@@ -547,7 +551,10 @@
                         <div class="custom-rep-section-title">Outside Sales</div>
                         <div id="custom-eng-outside">
                             <div class="custom-rep-row">
-                                <input type="text" placeholder="Rep name" oninput="updateCustomEngineer()">
+                                <select class="rep-name-select" onchange="handleRepSelect(this); updateCustomEngineer()">
+                                    <option value="">-- Select Rep --</option>
+                                </select>
+                                <input type="text" class="custom-name-input" placeholder="Or type name..." oninput="updateCustomEngineer()" style="display:none;">
                                 <input type="number" value="100" min="0" max="100" oninput="updateCustomEngineer()">
                                 <span style="font-size:0.8em; color:#666;">%</span>
                                 <button class="remove-rep-btn" onclick="removeCustomRep(this, 'eng-outside')">&times;</button>
@@ -559,7 +566,10 @@
                         <div class="custom-rep-section-title">Inside Sales</div>
                         <div id="custom-eng-inside">
                             <div class="custom-rep-row">
-                                <input type="text" placeholder="Rep name" oninput="updateCustomEngineer()">
+                                <select class="rep-name-select" onchange="handleRepSelect(this); updateCustomEngineer()">
+                                    <option value="">-- Select Rep --</option>
+                                </select>
+                                <input type="text" class="custom-name-input" placeholder="Or type name..." oninput="updateCustomEngineer()" style="display:none;">
                                 <input type="number" value="100" min="0" max="100" oninput="updateCustomEngineer()">
                                 <span style="font-size:0.8em; color:#666;">%</span>
                                 <button class="remove-rep-btn" onclick="removeCustomRep(this, 'eng-inside')">&times;</button>
@@ -922,10 +932,10 @@
         ],
         engineers: [
             { id: 'e0', name: 'None', outside: [], inside: [] },
+            { id: 'e-other', name: '-- Other (Custom) --', outside: [], inside: [], isOther: true },
             { id: 'e1', name: 'CMTA', outside: [{name: 'Ben E.', split: 50}, {name: 'Jeff F.', split: 50}], inside: [{name: 'Evan J.', split: 100}] },
             { id: 'e2', name: 'MBN Design', outside: [{name: 'Ben E.', split: 50}, {name: 'Lee F.', split: 50}], inside: [{name: 'Jacob E.', split: 100}] },
-            { id: 'e3', name: 'KFI Engineers', outside: [{name: 'Ben E.', split: 100}], inside: [{name: 'John P.', split: 100}] },
-            { id: 'e-other', name: '-- Other (Custom) --', outside: [], inside: [], isOther: true }
+            { id: 'e3', name: 'KFI Engineers', outside: [{name: 'Ben E.', split: 100}], inside: [{name: 'John P.', split: 100}] }
         ],
         contractors: [
             { id: 'c0', name: 'None', outside: [], inside: [] },
@@ -1569,11 +1579,11 @@ function updateDBFromExcel(type) {
     }));
 
     if (type === 'engineers') {
-        // Keep "None" as first option and "Other" as last option
+        // Keep "None" first, then "Other", then loaded companies
         DB.engineers = [
             { id: 'e0', name: 'None', outside: [], inside: [] },
-            ...converted,
-            { id: 'e-other', name: '-- Other (Custom) --', outside: [], inside: [], isOther: true }
+            { id: 'e-other', name: '-- Other (Custom) --', outside: [], inside: [], isOther: true },
+            ...converted
         ];
     } else if (type === 'contractors') {
         // Keep "None" as first option
@@ -1692,6 +1702,8 @@ function refreshDropdowns() {
             const customPanel = document.getElementById('custom-eng-panel');
             if (selectedCompany.isOther) {
                 customPanel.classList.add('active');
+                // Populate the rep name dropdowns with available names
+                populateRepNameDropdowns();
                 // Read custom values from panel inputs
                 updateCustomEngineer();
                 return; // updateCustomEngineer calls updateAll
@@ -1723,15 +1735,102 @@ function refreshDropdowns() {
     }
 
     // --- CUSTOM ENGINEER FUNCTIONS ---
+
+    // Get unique rep names from all loaded data
+    function getUniqueRepNames() {
+        const names = new Set();
+
+        // Gather from all DB arrays
+        ['owners', 'engineers', 'contractors'].forEach(type => {
+            DB[type].forEach(company => {
+                if (company.outside) {
+                    company.outside.forEach(rep => names.add(rep.name));
+                }
+                if (company.inside) {
+                    company.inside.forEach(rep => names.add(rep.name));
+                }
+            });
+        });
+
+        // Also gather from excelData if available (all product lines)
+        ['engineers', 'contractors', 'owners'].forEach(type => {
+            if (excelData[type]) {
+                excelData[type].forEach(company => {
+                    ['vent', 'hydronic', 'industrial'].forEach(line => {
+                        if (company[line]) {
+                            if (company[line].outside) {
+                                company[line].outside.forEach(rep => names.add(rep.name));
+                            }
+                            if (company[line].inside) {
+                                company[line].inside.forEach(rep => names.add(rep.name));
+                            }
+                        }
+                    });
+                });
+            }
+        });
+
+        // Sort alphabetically and return as array
+        return Array.from(names).sort((a, b) => a.localeCompare(b));
+    }
+
+    // Populate rep name dropdowns with unique names
+    function populateRepNameDropdowns() {
+        const names = getUniqueRepNames();
+        const selects = document.querySelectorAll('.rep-name-select');
+
+        selects.forEach(select => {
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">-- Select Rep --</option>';
+            names.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                select.appendChild(opt);
+            });
+            // Add "Type custom..." option
+            const customOpt = document.createElement('option');
+            customOpt.value = '__custom__';
+            customOpt.textContent = '-- Type Custom Name --';
+            select.appendChild(customOpt);
+
+            // Restore previous selection if it exists
+            if (currentValue && currentValue !== '__custom__') {
+                select.value = currentValue;
+            }
+        });
+    }
+
+    // Handle rep select change - show text input if "custom" selected
+    function handleRepSelect(select) {
+        const row = select.closest('.custom-rep-row');
+        const textInput = row.querySelector('.custom-name-input');
+
+        if (select.value === '__custom__') {
+            select.style.display = 'none';
+            textInput.style.display = 'block';
+            textInput.focus();
+        }
+    }
+
     function updateCustomEngineer() {
         // Read outside sales from custom panel
         const outsideContainer = document.getElementById('custom-eng-outside');
         const outsideRows = outsideContainer.querySelectorAll('.custom-rep-row');
         const outsideReps = [];
         outsideRows.forEach(row => {
-            const nameInput = row.querySelector('input[type="text"]');
+            const select = row.querySelector('.rep-name-select');
+            const textInput = row.querySelector('.custom-name-input');
             const splitInput = row.querySelector('input[type="number"]');
-            const name = nameInput.value.trim();
+
+            // Get name from either select or text input
+            let name = '';
+            if (textInput && textInput.style.display !== 'none') {
+                name = textInput.value.trim();
+            } else if (select && select.value && select.value !== '__custom__') {
+                name = select.value;
+            }
+
             const split = parseInt(splitInput.value) || 0;
             if (name) {
                 outsideReps.push({ name: name, split: split });
@@ -1743,9 +1842,18 @@ function refreshDropdowns() {
         const insideRows = insideContainer.querySelectorAll('.custom-rep-row');
         const insideReps = [];
         insideRows.forEach(row => {
-            const nameInput = row.querySelector('input[type="text"]');
+            const select = row.querySelector('.rep-name-select');
+            const textInput = row.querySelector('.custom-name-input');
             const splitInput = row.querySelector('input[type="number"]');
-            const name = nameInput.value.trim();
+
+            // Get name from either select or text input
+            let name = '';
+            if (textInput && textInput.style.display !== 'none') {
+                name = textInput.value.trim();
+            } else if (select && select.value && select.value !== '__custom__') {
+                name = select.value;
+            }
+
             const split = parseInt(splitInput.value) || 0;
             if (name) {
                 insideReps.push({ name: name, split: split });
@@ -1762,31 +1870,74 @@ function refreshDropdowns() {
     function addCustomRep(section) {
         const containerId = section === 'eng-outside' ? 'custom-eng-outside' : 'custom-eng-inside';
         const container = document.getElementById(containerId);
+        const existingRows = container.querySelectorAll('.custom-rep-row');
+        const rowCount = existingRows.length;
+
+        // Calculate equal split for all reps
+        const equalSplit = Math.floor(100 / (rowCount + 1));
+        const remainder = 100 - (equalSplit * (rowCount + 1));
+
+        // Update existing rows to equal split
+        existingRows.forEach((row, idx) => {
+            const splitInput = row.querySelector('input[type="number"]');
+            // Give remainder to first rep
+            splitInput.value = idx === 0 ? equalSplit + remainder : equalSplit;
+        });
+
+        // Get unique rep names for dropdown
+        const names = getUniqueRepNames();
+        let optionsHtml = '<option value="">-- Select Rep --</option>';
+        names.forEach(name => {
+            optionsHtml += `<option value="${name}">${name}</option>`;
+        });
+        optionsHtml += '<option value="__custom__">-- Type Custom Name --</option>';
 
         const row = document.createElement('div');
         row.className = 'custom-rep-row';
         row.innerHTML = `
-            <input type="text" placeholder="Rep name" oninput="updateCustomEngineer()">
-            <input type="number" value="50" min="0" max="100" oninput="updateCustomEngineer()">
+            <select class="rep-name-select" onchange="handleRepSelect(this); updateCustomEngineer()">
+                ${optionsHtml}
+            </select>
+            <input type="text" class="custom-name-input" placeholder="Or type name..." oninput="updateCustomEngineer()" style="display:none;">
+            <input type="number" value="${equalSplit}" min="0" max="100" oninput="updateCustomEngineer()">
             <span style="font-size:0.8em; color:#666;">%</span>
             <button class="remove-rep-btn" onclick="removeCustomRep(this, '${section}')">&times;</button>
         `;
         container.appendChild(row);
-        row.querySelector('input[type="text"]').focus();
+        row.querySelector('select').focus();
+
+        updateCustomEngineer();
     }
 
     function removeCustomRep(btn, section) {
         const containerId = section === 'eng-outside' ? 'custom-eng-outside' : 'custom-eng-inside';
         const container = document.getElementById(containerId);
+        const rows = container.querySelectorAll('.custom-rep-row');
 
         // Don't remove if it's the last row
-        if (container.querySelectorAll('.custom-rep-row').length > 1) {
+        if (rows.length > 1) {
             btn.closest('.custom-rep-row').remove();
+
+            // Recalculate equal splits for remaining rows
+            const remainingRows = container.querySelectorAll('.custom-rep-row');
+            const equalSplit = Math.floor(100 / remainingRows.length);
+            const remainder = 100 - (equalSplit * remainingRows.length);
+
+            remainingRows.forEach((row, idx) => {
+                const splitInput = row.querySelector('input[type="number"]');
+                splitInput.value = idx === 0 ? equalSplit + remainder : equalSplit;
+            });
+
             updateCustomEngineer();
         } else {
             // Clear the last row instead of removing
             const row = btn.closest('.custom-rep-row');
-            row.querySelector('input[type="text"]').value = '';
+            const select = row.querySelector('.rep-name-select');
+            const textInput = row.querySelector('.custom-name-input');
+            select.value = '';
+            select.style.display = 'block';
+            textInput.value = '';
+            textInput.style.display = 'none';
             row.querySelector('input[type="number"]').value = '100';
             updateCustomEngineer();
         }
