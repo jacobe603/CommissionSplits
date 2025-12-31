@@ -338,6 +338,80 @@
         .matrix-table-wrapper {
             max-height: 600px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px;
         }
+
+        /* Custom Rep Input Panel */
+        .custom-rep-panel {
+            display: none;
+            background: #f8f9fa;
+            border: 2px solid var(--eng-color);
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        .custom-rep-panel.active { display: block; }
+        .custom-rep-panel h4 {
+            margin: 0 0 12px 0;
+            color: var(--eng-color);
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .custom-rep-section {
+            margin-bottom: 15px;
+        }
+        .custom-rep-section:last-child { margin-bottom: 0; }
+        .custom-rep-section-title {
+            font-size: 0.8em;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 8px;
+        }
+        .custom-rep-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 6px;
+            align-items: center;
+        }
+        .custom-rep-row input[type="text"] {
+            flex: 2;
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+        .custom-rep-row input[type="number"] {
+            width: 70px;
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.85em;
+            text-align: center;
+        }
+        .custom-rep-row .remove-rep-btn {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            font-size: 1.2em;
+            padding: 0 5px;
+            line-height: 1;
+        }
+        .custom-rep-row .remove-rep-btn:hover { color: var(--danger); }
+        .add-rep-btn {
+            background: none;
+            border: 1px dashed #ccc;
+            color: #666;
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+            margin-top: 5px;
+        }
+        .add-rep-btn:hover {
+            border-color: var(--eng-color);
+            color: var(--eng-color);
+        }
     </style>
 </head>
 <body>
@@ -457,6 +531,43 @@
             <div>
                 <label>Select Engineer Company (Quote Team)</label>
                 <select id="sel-eng" onchange="loadCompany('engineer')"></select>
+
+                <!-- Custom Engineer Input Panel -->
+                <div class="custom-rep-panel" id="custom-eng-panel">
+                    <h4>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                        Custom Engineer Team
+                    </h4>
+                    <div class="custom-rep-section">
+                        <div class="custom-rep-section-title">Outside Sales</div>
+                        <div id="custom-eng-outside">
+                            <div class="custom-rep-row">
+                                <input type="text" placeholder="Rep name" oninput="updateCustomEngineer()">
+                                <input type="number" value="100" min="0" max="100" oninput="updateCustomEngineer()">
+                                <span style="font-size:0.8em; color:#666;">%</span>
+                                <button class="remove-rep-btn" onclick="removeCustomRep(this, 'eng-outside')">&times;</button>
+                            </div>
+                        </div>
+                        <button class="add-rep-btn" onclick="addCustomRep('eng-outside')">+ Add Rep</button>
+                    </div>
+                    <div class="custom-rep-section">
+                        <div class="custom-rep-section-title">Inside Sales</div>
+                        <div id="custom-eng-inside">
+                            <div class="custom-rep-row">
+                                <input type="text" placeholder="Rep name" oninput="updateCustomEngineer()">
+                                <input type="number" value="100" min="0" max="100" oninput="updateCustomEngineer()">
+                                <span style="font-size:0.8em; color:#666;">%</span>
+                                <button class="remove-rep-btn" onclick="removeCustomRep(this, 'eng-inside')">&times;</button>
+                            </div>
+                        </div>
+                        <button class="add-rep-btn" onclick="addCustomRep('eng-inside')">+ Add Rep</button>
+                    </div>
+                </div>
             </div>
             <div>
                 <label>Select Contractor Company (Customer Team)</label>
@@ -813,7 +924,8 @@
             { id: 'e0', name: 'None', outside: [], inside: [] },
             { id: 'e1', name: 'CMTA', outside: [{name: 'Ben E.', split: 50}, {name: 'Jeff F.', split: 50}], inside: [{name: 'Evan J.', split: 100}] },
             { id: 'e2', name: 'MBN Design', outside: [{name: 'Ben E.', split: 50}, {name: 'Lee F.', split: 50}], inside: [{name: 'Jacob E.', split: 100}] },
-            { id: 'e3', name: 'KFI Engineers', outside: [{name: 'Ben E.', split: 100}], inside: [{name: 'John P.', split: 100}] }
+            { id: 'e3', name: 'KFI Engineers', outside: [{name: 'Ben E.', split: 100}], inside: [{name: 'John P.', split: 100}] },
+            { id: 'e-other', name: '-- Other (Custom) --', outside: [], inside: [], isOther: true }
         ],
         contractors: [
             { id: 'c0', name: 'None', outside: [], inside: [] },
@@ -1457,8 +1569,12 @@ function updateDBFromExcel(type) {
     }));
 
     if (type === 'engineers') {
-        // Keep "None" as first option
-        DB.engineers = [{ id: 'e0', name: 'None', outside: [], inside: [] }, ...converted];
+        // Keep "None" as first option and "Other" as last option
+        DB.engineers = [
+            { id: 'e0', name: 'None', outside: [], inside: [] },
+            ...converted,
+            { id: 'e-other', name: '-- Other (Custom) --', outside: [], inside: [], isOther: true }
+        ];
     } else if (type === 'contractors') {
         // Keep "None" as first option
         DB.contractors = [{ id: 'c0', name: 'None', outside: [], inside: [] }, ...converted];
@@ -1571,6 +1687,19 @@ function refreshDropdowns() {
         // Deep copy the reps so we can edit them without changing the DB
         let selectedCompany = dbList[selIndex];
 
+        // Handle "Other" option for engineer - show custom panel
+        if (type === 'engineer') {
+            const customPanel = document.getElementById('custom-eng-panel');
+            if (selectedCompany.isOther) {
+                customPanel.classList.add('active');
+                // Read custom values from panel inputs
+                updateCustomEngineer();
+                return; // updateCustomEngineer calls updateAll
+            } else {
+                customPanel.classList.remove('active');
+            }
+        }
+
         // All company types now have separate inside/outside arrays
         if (type === 'owner') {
             currentSplits.ownerOutside = JSON.parse(JSON.stringify(selectedCompany.outside));
@@ -1591,6 +1720,76 @@ function refreshDropdowns() {
         }
 
         updateAll();
+    }
+
+    // --- CUSTOM ENGINEER FUNCTIONS ---
+    function updateCustomEngineer() {
+        // Read outside sales from custom panel
+        const outsideContainer = document.getElementById('custom-eng-outside');
+        const outsideRows = outsideContainer.querySelectorAll('.custom-rep-row');
+        const outsideReps = [];
+        outsideRows.forEach(row => {
+            const nameInput = row.querySelector('input[type="text"]');
+            const splitInput = row.querySelector('input[type="number"]');
+            const name = nameInput.value.trim();
+            const split = parseInt(splitInput.value) || 0;
+            if (name) {
+                outsideReps.push({ name: name, split: split });
+            }
+        });
+
+        // Read inside sales from custom panel
+        const insideContainer = document.getElementById('custom-eng-inside');
+        const insideRows = insideContainer.querySelectorAll('.custom-rep-row');
+        const insideReps = [];
+        insideRows.forEach(row => {
+            const nameInput = row.querySelector('input[type="text"]');
+            const splitInput = row.querySelector('input[type="number"]');
+            const name = nameInput.value.trim();
+            const split = parseInt(splitInput.value) || 0;
+            if (name) {
+                insideReps.push({ name: name, split: split });
+            }
+        });
+
+        // Update currentSplits with custom values
+        currentSplits.engineerOutside = outsideReps;
+        currentSplits.engineerInside = insideReps;
+
+        updateAll();
+    }
+
+    function addCustomRep(section) {
+        const containerId = section === 'eng-outside' ? 'custom-eng-outside' : 'custom-eng-inside';
+        const container = document.getElementById(containerId);
+
+        const row = document.createElement('div');
+        row.className = 'custom-rep-row';
+        row.innerHTML = `
+            <input type="text" placeholder="Rep name" oninput="updateCustomEngineer()">
+            <input type="number" value="50" min="0" max="100" oninput="updateCustomEngineer()">
+            <span style="font-size:0.8em; color:#666;">%</span>
+            <button class="remove-rep-btn" onclick="removeCustomRep(this, '${section}')">&times;</button>
+        `;
+        container.appendChild(row);
+        row.querySelector('input[type="text"]').focus();
+    }
+
+    function removeCustomRep(btn, section) {
+        const containerId = section === 'eng-outside' ? 'custom-eng-outside' : 'custom-eng-inside';
+        const container = document.getElementById(containerId);
+
+        // Don't remove if it's the last row
+        if (container.querySelectorAll('.custom-rep-row').length > 1) {
+            btn.closest('.custom-rep-row').remove();
+            updateCustomEngineer();
+        } else {
+            // Clear the last row instead of removing
+            const row = btn.closest('.custom-rep-row');
+            row.querySelector('input[type="text"]').value = '';
+            row.querySelector('input[type="number"]').value = '100';
+            updateCustomEngineer();
+        }
     }
 
     // --- COMMISSION TABLE FUNCTIONS ---
