@@ -582,6 +582,49 @@
             <div>
                 <label>Select Contractor Company (Customer Team)</label>
                 <select id="sel-cont" onchange="loadCompany('contractor')"></select>
+
+                <!-- Custom Contractor Input Panel -->
+                <div class="custom-rep-panel" id="custom-cont-panel">
+                    <h4>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                        Custom Contractor Team
+                    </h4>
+                    <div class="custom-rep-section">
+                        <div class="custom-rep-section-title">Outside Sales</div>
+                        <div id="custom-cont-outside">
+                            <div class="custom-rep-row">
+                                <select class="rep-name-select" onchange="handleRepSelect(this); updateCustomContractor()">
+                                    <option value="">-- Select Rep --</option>
+                                </select>
+                                <input type="text" class="custom-name-input" placeholder="Or type name..." oninput="updateCustomContractor()" style="display:none;">
+                                <input type="number" value="100" min="0" max="100" oninput="updateCustomContractor()">
+                                <span style="font-size:0.8em; color:#666;">%</span>
+                                <button class="remove-rep-btn" onclick="removeCustomRep(this, 'cont-outside')">&times;</button>
+                            </div>
+                        </div>
+                        <button class="add-rep-btn" onclick="addCustomRep('cont-outside')">+ Add Rep</button>
+                    </div>
+                    <div class="custom-rep-section">
+                        <div class="custom-rep-section-title">Inside Sales</div>
+                        <div id="custom-cont-inside">
+                            <div class="custom-rep-row">
+                                <select class="rep-name-select" onchange="handleRepSelect(this); updateCustomContractor()">
+                                    <option value="">-- Select Rep --</option>
+                                </select>
+                                <input type="text" class="custom-name-input" placeholder="Or type name..." oninput="updateCustomContractor()" style="display:none;">
+                                <input type="number" value="100" min="0" max="100" oninput="updateCustomContractor()">
+                                <span style="font-size:0.8em; color:#666;">%</span>
+                                <button class="remove-rep-btn" onclick="removeCustomRep(this, 'cont-inside')">&times;</button>
+                            </div>
+                        </div>
+                        <button class="add-rep-btn" onclick="addCustomRep('cont-inside')">+ Add Rep</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -939,6 +982,7 @@
         ],
         contractors: [
             { id: 'c0', name: 'None', outside: [], inside: [] },
+            { id: 'c-other', name: '-- Other (Custom) --', outside: [], inside: [], isOther: true },
             { id: 'c1', name: 'UHL Company', outside: [{name: 'Lee F.', split: 50}, {name: 'Charlie V.', split: 50}], inside: [{name: 'Evan J.', split: 100}] },
             { id: 'c2', name: 'Harris Mechanical', outside: [{name: 'Greg N.', split: 70}, {name: 'Gary K.', split: 30}], inside: [{name: 'Jacob E.', split: 100}] },
             { id: 'c3', name: 'Yale Mechanical', outside: [{name: 'Dan M.', split: 100}], inside: [{name: 'Wyatt K.', split: 100}] }
@@ -1586,8 +1630,12 @@ function updateDBFromExcel(type) {
             ...converted
         ];
     } else if (type === 'contractors') {
-        // Keep "None" as first option
-        DB.contractors = [{ id: 'c0', name: 'None', outside: [], inside: [] }, ...converted];
+        // Keep "None" and "Other" as first options
+        DB.contractors = [
+            { id: 'c0', name: 'None', outside: [], inside: [] },
+            { id: 'c-other', name: '-- Other (Custom) --', outside: [], inside: [], isOther: true },
+            ...converted
+        ];
     } else if (type === 'owners') {
         // Keep "None / Direct" as first option
         DB.owners = [{ id: 'o0', name: 'None / Direct', outside: [], inside: [] }, ...converted];
@@ -1712,6 +1760,21 @@ function refreshDropdowns() {
             }
         }
 
+        // Handle "Other" option for contractor - show custom panel
+        if (type === 'contractor') {
+            const customPanel = document.getElementById('custom-cont-panel');
+            if (selectedCompany.isOther) {
+                customPanel.classList.add('active');
+                // Populate the rep name dropdowns with available names
+                populateRepNameDropdowns();
+                // Read custom values from panel inputs
+                updateCustomContractor();
+                return; // updateCustomContractor calls updateAll
+            } else {
+                customPanel.classList.remove('active');
+            }
+        }
+
         // All company types now have separate inside/outside arrays
         if (type === 'owner') {
             currentSplits.ownerOutside = JSON.parse(JSON.stringify(selectedCompany.outside));
@@ -1769,9 +1832,11 @@ function refreshDropdowns() {
 
     // Populate rep name dropdowns with unique names
     function populateRepNameDropdowns() {
-        // Populate outside sales dropdowns
-        const outsideSelects = document.querySelectorAll('#custom-eng-outside .rep-name-select');
         const outsideNames = getUniqueRepNames('outside');
+        const insideNames = getUniqueRepNames('inside');
+
+        // Populate outside sales dropdowns (both engineer and contractor)
+        const outsideSelects = document.querySelectorAll('#custom-eng-outside .rep-name-select, #custom-cont-outside .rep-name-select');
 
         outsideSelects.forEach(select => {
             const currentValue = select.value;
@@ -1791,9 +1856,8 @@ function refreshDropdowns() {
             }
         });
 
-        // Populate inside sales dropdowns
-        const insideSelects = document.querySelectorAll('#custom-eng-inside .rep-name-select');
-        const insideNames = getUniqueRepNames('inside');
+        // Populate inside sales dropdowns (both engineer and contractor)
+        const insideSelects = document.querySelectorAll('#custom-eng-inside .rep-name-select, #custom-cont-inside .rep-name-select');
 
         insideSelects.forEach(select => {
             const currentValue = select.value;
@@ -1880,9 +1944,80 @@ function refreshDropdowns() {
         updateAll();
     }
 
+    function updateCustomContractor() {
+        // Read outside sales from custom panel
+        const outsideContainer = document.getElementById('custom-cont-outside');
+        const outsideRows = outsideContainer.querySelectorAll('.custom-rep-row');
+        const outsideReps = [];
+        outsideRows.forEach(row => {
+            const select = row.querySelector('.rep-name-select');
+            const textInput = row.querySelector('.custom-name-input');
+            const splitInput = row.querySelector('input[type="number"]');
+
+            // Get name from either select or text input
+            let name = '';
+            if (textInput && textInput.style.display !== 'none') {
+                name = textInput.value.trim();
+            } else if (select && select.value && select.value !== '__custom__') {
+                name = select.value;
+            }
+
+            const split = parseInt(splitInput.value) || 0;
+            if (name) {
+                outsideReps.push({ name: name, split: split });
+            }
+        });
+
+        // Read inside sales from custom panel
+        const insideContainer = document.getElementById('custom-cont-inside');
+        const insideRows = insideContainer.querySelectorAll('.custom-rep-row');
+        const insideReps = [];
+        insideRows.forEach(row => {
+            const select = row.querySelector('.rep-name-select');
+            const textInput = row.querySelector('.custom-name-input');
+            const splitInput = row.querySelector('input[type="number"]');
+
+            // Get name from either select or text input
+            let name = '';
+            if (textInput && textInput.style.display !== 'none') {
+                name = textInput.value.trim();
+            } else if (select && select.value && select.value !== '__custom__') {
+                name = select.value;
+            }
+
+            const split = parseInt(splitInput.value) || 0;
+            if (name) {
+                insideReps.push({ name: name, split: split });
+            }
+        });
+
+        // Update currentSplits with custom values
+        currentSplits.contractorOutside = outsideReps;
+        currentSplits.contractorInside = insideReps;
+
+        updateAll();
+    }
+
     function addCustomRep(section) {
-        const containerId = section === 'eng-outside' ? 'custom-eng-outside' : 'custom-eng-inside';
-        const salesType = section === 'eng-outside' ? 'outside' : 'inside';
+        // Determine container and sales type based on section
+        let containerId, salesType, updateFunc;
+        if (section === 'eng-outside') {
+            containerId = 'custom-eng-outside';
+            salesType = 'outside';
+            updateFunc = 'updateCustomEngineer';
+        } else if (section === 'eng-inside') {
+            containerId = 'custom-eng-inside';
+            salesType = 'inside';
+            updateFunc = 'updateCustomEngineer';
+        } else if (section === 'cont-outside') {
+            containerId = 'custom-cont-outside';
+            salesType = 'outside';
+            updateFunc = 'updateCustomContractor';
+        } else {
+            containerId = 'custom-cont-inside';
+            salesType = 'inside';
+            updateFunc = 'updateCustomContractor';
+        }
         const container = document.getElementById(containerId);
         const existingRows = container.querySelectorAll('.custom-rep-row');
         const rowCount = existingRows.length;
@@ -1909,22 +2044,42 @@ function refreshDropdowns() {
         const row = document.createElement('div');
         row.className = 'custom-rep-row';
         row.innerHTML = `
-            <select class="rep-name-select" onchange="handleRepSelect(this); updateCustomEngineer()">
+            <select class="rep-name-select" onchange="handleRepSelect(this); ${updateFunc}()">
                 ${optionsHtml}
             </select>
-            <input type="text" class="custom-name-input" placeholder="Or type name..." oninput="updateCustomEngineer()" style="display:none;">
-            <input type="number" value="${equalSplit}" min="0" max="100" oninput="updateCustomEngineer()">
+            <input type="text" class="custom-name-input" placeholder="Or type name..." oninput="${updateFunc}()" style="display:none;">
+            <input type="number" value="${equalSplit}" min="0" max="100" oninput="${updateFunc}()">
             <span style="font-size:0.8em; color:#666;">%</span>
             <button class="remove-rep-btn" onclick="removeCustomRep(this, '${section}')">&times;</button>
         `;
         container.appendChild(row);
         row.querySelector('select').focus();
 
-        updateCustomEngineer();
+        // Call the appropriate update function
+        if (updateFunc === 'updateCustomEngineer') {
+            updateCustomEngineer();
+        } else {
+            updateCustomContractor();
+        }
     }
 
     function removeCustomRep(btn, section) {
-        const containerId = section === 'eng-outside' ? 'custom-eng-outside' : 'custom-eng-inside';
+        // Determine container and update function based on section
+        let containerId, updateFunc;
+        if (section === 'eng-outside') {
+            containerId = 'custom-eng-outside';
+            updateFunc = updateCustomEngineer;
+        } else if (section === 'eng-inside') {
+            containerId = 'custom-eng-inside';
+            updateFunc = updateCustomEngineer;
+        } else if (section === 'cont-outside') {
+            containerId = 'custom-cont-outside';
+            updateFunc = updateCustomContractor;
+        } else {
+            containerId = 'custom-cont-inside';
+            updateFunc = updateCustomContractor;
+        }
+
         const container = document.getElementById(containerId);
         const rows = container.querySelectorAll('.custom-rep-row');
 
@@ -1942,7 +2097,7 @@ function refreshDropdowns() {
                 splitInput.value = idx === 0 ? equalSplit + remainder : equalSplit;
             });
 
-            updateCustomEngineer();
+            updateFunc();
         } else {
             // Clear the last row instead of removing
             const row = btn.closest('.custom-rep-row');
@@ -1953,7 +2108,7 @@ function refreshDropdowns() {
             textInput.value = '';
             textInput.style.display = 'none';
             row.querySelector('input[type="number"]').value = '100';
-            updateCustomEngineer();
+            updateFunc();
         }
     }
 
